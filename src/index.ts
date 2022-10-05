@@ -1,8 +1,9 @@
 const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm } = require('fs');
 const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
-const { Linter } = require('eslint');
 const path = require('path');
+import { generateResultXML } from './generate';
+import { lint } from './validate';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -48,7 +49,6 @@ async function run() {
         stat(`${pathToProject}/scripts`)
     ]);
     const scriptsNames = await readdir(`${pathToProject}/scripts`);
-    const linter = new Linter();
 
     // TODO: fix file path to eslint config
     const linterConfig = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
@@ -67,17 +67,21 @@ async function run() {
       const parser = new XMLParser(options);
       let jsonObj = parser.parse(scriptXML);
       console.log(`-----${scriptsNames[i]}-----`);
+
+      let write = false;
       // console.log('type', jsonObj.script.type);
 // console.log('jsonObj', jsonObj);
       if (jsonObj.script['#text']) {
-        const messages = linter.verifyAndFix(jsonObj.script['#text'], linterConfig, scriptsNames[i]);
+        const messages = lint(jsonObj.script['#text'], linterConfig, scriptsNames[i]);
         // console.log('messages', messages);
-        if (messages.fixed) {
+        write = messages.fixed;
+
+        if (write) {
  //      console.log('text', jsonObj.script['#text']);
   //        console.log('res', generateResultXML(jsonObj, messages.output));
             const res = generateResultXML(jsonObj, messages.output);
 //          const res = scriptXML.replace(/CDATA\[[\s\S]*\]/, 'CDATA[' + messages.output + ']]');
-         console.log('res',messages.messages, res);
+          console.log('lint res', messages.messages, res);
           writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
         } else if(messages.messages.length > 0) {
           console.log('Not fixed', messages.messages, messages.output);
@@ -102,9 +106,3 @@ async function run() {
 }
 
 run();
-
-
-function generateResultXML(initXML: any, res: string) {
-  return (`\
-<script key="${initXML.script.key}" type="${initXML.script.type}" name="${initXML.script.name}"><![CDATA[${res}]]></script>`);
-}
