@@ -13,12 +13,12 @@ const exec = promisify(require('node:child_process').exec);
 
 const passedPath = process.argv[2];
 
-if (!passedPath) {
-  console.log('Pass path as second arg');
-  process.exit(1);
-}
-
 async function run() {
+  if (!passedPath) {
+    console.log('Pass path as second arg');
+    process.exit(1);
+  }
+
   let pathStat = null;
 
   try {
@@ -104,7 +104,7 @@ async function run() {
 run();
 
 
-function generateResultXML(initXML, res) {
+function generateResultXML(initXML: any, res: string) {
   return (`\
 <script key="${initXML.script.key}" type="${initXML.script.type}" name="${initXML.script.name}"><![CDATA[${res}]]></script>`);
 }
