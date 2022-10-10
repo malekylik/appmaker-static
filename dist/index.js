@@ -7,6 +7,7 @@ const path = require('path');
 const generate_1 = require("./generate");
 const validate_1 = require("./validate");
 const ts = require("typescript");
+const app_1 = require("./appmaker/app");
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
 const readFile = promisify(oldReadFile);
@@ -70,6 +71,7 @@ async function run() {
             });
         }
         const modelFiles = [];
+        const app = new app_1.App();
         for (let i = 0; i < modelsNames.length; i++) {
             const scriptXML = await readFile(`${pathToProject}/models/${modelsNames[i]}`, 'utf-8');
             const options = {
@@ -83,6 +85,12 @@ async function run() {
                 path: `${pathToProject}/models/${modelsNames[i]}`,
                 file: jsonObj,
             });
+            const model = {
+                name: modelsNames[i],
+                fields: jsonObj.model.field,
+                dataSources: Array.isArray(jsonObj.model.dataSource) ? jsonObj.model.dataSource : [jsonObj.model.dataSource]
+            };
+            app.addModel(model);
         }
         console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
         const pathToTempDir = `${__dirname}/temp`;
@@ -104,7 +112,8 @@ async function run() {
             const conf = { ...tsconfigConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
             writeFile(`${pathToTempDir}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
             await mkdir(pathToTypes);
-            await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/index.d.ts`, `${pathToTypes}/index.d.ts`);
+            // await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/index.d.ts`, `${pathToTypes}/index.d.ts`);
+            await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
             let program = ts.createProgram(files, conf);
             let emitResult = program.emit();
             let allDiagnostics = ts

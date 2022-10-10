@@ -1,8 +1,8 @@
-zip /usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4
+zip /usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31
 modelFiles [
   {
-    "name": "ClientUtils.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/Controls.xml",
+    "name": "Controls.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/Controls.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -464,8 +464,8 @@ modelFiles [
     }
   },
   {
-    "name": "DateUtils.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/Gaps.xml",
+    "name": "Gaps.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/Gaps.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -997,8 +997,8 @@ modelFiles [
     }
   },
   {
-    "name": "GPOReview.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/PreSurveyQuestionnaire.xml",
+    "name": "PreSurveyQuestionnaire.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/PreSurveyQuestionnaire.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -1178,8 +1178,8 @@ modelFiles [
     }
   },
   {
-    "name": "Notification.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/Process.xml",
+    "name": "Process.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/Process.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -1565,8 +1565,8 @@ modelFiles [
     }
   },
   {
-    "name": "NotificationServer.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/ProcessRA.xml",
+    "name": "ProcessRA.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/ProcessRA.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -2067,8 +2067,8 @@ modelFiles [
     }
   },
   {
-    "name": "ProcessViewClient.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/RAQuestionnaire.xml",
+    "name": "RAQuestionnaire.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/RAQuestionnaire.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -2268,8 +2268,8 @@ modelFiles [
     }
   },
   {
-    "name": "ProcessViewServer.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/RiskAssessment.xml",
+    "name": "RiskAssessment.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/RiskAssessment.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -2590,8 +2590,8 @@ modelFiles [
     }
   },
   {
-    "name": "RiskAssessment.xml",
-    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:27:4/models/RiskDriver.xml",
+    "name": "RiskDriver.xml",
+    "path": "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0 feedback_temp_9:10:2022_12:58:31/models/RiskDriver.xml",
     "file": {
       "model": {
         "modelPermission": {
@@ -3111,3 +3111,33 @@ modelFiles [
     }
   }
 ]
+-----ClientUtils.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/ClientUtils.js
+-----DateUtils.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/DateUtils.js
+-----GPOReview.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/GPOReview.js
+-----Notification.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/Notification.js
+-----NotificationServer.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/NotificationServer.js
+-----ProcessViewClient.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/ProcessViewClient.js
+-----ProcessViewServer.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/ProcessViewServer.js
+-----RiskAssessment.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/RiskAssessment.js
+-----RiskAssessmentServer.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/RiskAssessmentServer.js
+-----RiskDriverClient.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/RiskDriverClient.js
+-----ServerUtils.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/ServerUtils.js
+-----Table.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/Table.js
+-----UrlUtils.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/UrlUtils.js
+-----Utils.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/Utils.js
+-----menu.xml-----
+/usr/local/google/home/kalinouski/Documents/workspace/appmaker-static/dist/temp/menu.js

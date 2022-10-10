@@ -14,7 +14,7 @@ export interface DataSource {
 export interface ModelFile {
   model: {
     modelPermission: {};
-    field: Array<{}>;
+    field: Array<{ name: string; type: string; }>;
     permission: Array<{}>;
     dataSource: Array<DataSource> | DataSource;
   };

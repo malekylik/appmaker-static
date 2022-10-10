@@ -6,6 +6,7 @@ import { generateResultXML } from './generate';
 import { lint } from './validate';
 import { ModelFile, ScriptFile } from './appmaker';
 import * as ts from 'typescript';
+import { App, Model } from './appmaker/app';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -52,8 +53,8 @@ async function run() {
     const [scriptStat] = await Promise.all([
         stat(`${pathToProject}/scripts`)
     ]);
-    const scriptsNames = await readdir(`${pathToProject}/scripts`);
-    const modelsNames = await readdir(`${pathToProject}/models`);
+    const scriptsNames: Array<string> = await readdir(`${pathToProject}/scripts`);
+    const modelsNames: Array<string> = await readdir(`${pathToProject}/models`);
 
     // TODO: fix file path to eslint config
     const linterConfig = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
@@ -75,13 +76,14 @@ async function run() {
       let jsonObj: ScriptFile = parser.parse(scriptXML);
 
       scriptFiles.push({
-        name: scriptsNames[i],
+        name: scriptsNames[i]!,
         path: `${pathToProject}/scripts/${scriptsNames[i]}`,
         file: jsonObj,
       });
     }
 
     const modelFiles: Array<{ name: string; path: string; file: ModelFile }> = [];
+    const app = new App();
 
     for (let i = 0; i < modelsNames.length; i++) {
       const scriptXML = await readFile(`${pathToProject}/models/${modelsNames[i]}`, 'utf-8');
@@ -95,10 +97,18 @@ async function run() {
       let jsonObj: ModelFile = parser.parse(scriptXML);
 
       modelFiles.push({
-        name: modelsNames[i],
+        name: modelsNames[i]!,
         path: `${pathToProject}/models/${modelsNames[i]}`,
         file: jsonObj,
       });
+
+      const model: Model = {
+        name: modelsNames[i]!,
+        fields: jsonObj.model.field,
+        dataSources: Array.isArray(jsonObj.model.dataSource) ? jsonObj.model.dataSource : [jsonObj.model.dataSource]
+      };
+
+      app.addModel(model);
     }
 
     console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
@@ -130,7 +140,8 @@ async function run() {
 
       await mkdir(pathToTypes);
 
-      await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/index.d.ts`, `${pathToTypes}/index.d.ts`);
+      // await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/index.d.ts`, `${pathToTypes}/index.d.ts`);
+      await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
 
       let program = ts.createProgram(files, conf);
       let emitResult = program.emit();
@@ -180,7 +191,7 @@ async function run() {
           console.log('Not fixed', messages.messages, messages.output);
         }
       } else {
-        emptyScripts.push(scriptsNames[i]);
+        emptyScripts.push(scriptsNames[i]!);
       }
     }
 

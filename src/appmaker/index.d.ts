@@ -6,6 +6,7 @@ declare type Datasource<T> = {
   items: List<T> | null;
 
   load(config?: { success: () => void; failure?: (e: Error) => void }): void;
+  unload(): void;
 };
 
 type WidgetCommon = {
