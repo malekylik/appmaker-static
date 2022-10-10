@@ -6,3 +6,16 @@ export interface ScriptFile {
     name: string;
   };
 }
+
+export interface DataSource {
+  name: string;
+}
+
+export interface ModelFile {
+  model: {
+    modelPermission: {};
+    field: Array<{}>;
+    permission: Array<{}>;
+    dataSource: Array<DataSource> | DataSource;
+  };
+}

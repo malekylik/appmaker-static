@@ -4,7 +4,7 @@ const { XMLParser } = require('fast-xml-parser');
 const path = require('path');
 import { generateResultXML } from './generate';
 import { lint } from './validate';
-import { ScriptFile } from './appmaker';
+import { ModelFile, ScriptFile } from './appmaker';
 import * as ts from 'typescript';
 
 const stat = promisify(oldStat);
@@ -53,12 +53,13 @@ async function run() {
         stat(`${pathToProject}/scripts`)
     ]);
     const scriptsNames = await readdir(`${pathToProject}/scripts`);
+    const modelsNames = await readdir(`${pathToProject}/models`);
 
     // TODO: fix file path to eslint config
     const linterConfig = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
     const tsconfigConfig: { compilerOptions: any } = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
 
-    const files = [];
+    const scriptFiles: Array<{ name: string; path: string; file: ScriptFile }> = [];
     const emptyScripts: string[] = [];
 
     for (let i = 0; i < scriptsNames.length; i++) {
@@ -73,21 +74,42 @@ async function run() {
       const parser = new XMLParser(options);
       let jsonObj: ScriptFile = parser.parse(scriptXML);
 
-      files.push({
+      scriptFiles.push({
         name: scriptsNames[i],
         path: `${pathToProject}/scripts/${scriptsNames[i]}`,
         file: jsonObj,
       });
     }
 
-    
+    const modelFiles: Array<{ name: string; path: string; file: ModelFile }> = [];
+
+    for (let i = 0; i < modelsNames.length; i++) {
+      const scriptXML = await readFile(`${pathToProject}/models/${modelsNames[i]}`, 'utf-8');
+
+      const options = {
+        ignoreAttributes : false,
+        attributeNamePrefix: '',
+      };
+
+      const parser = new XMLParser(options);
+      let jsonObj: ModelFile = parser.parse(scriptXML);
+
+      modelFiles.push({
+        name: modelsNames[i],
+        path: `${pathToProject}/models/${modelsNames[i]}`,
+        file: jsonObj,
+      });
+    }
+
+    console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
+
     const pathToTempDir = `${__dirname}/temp`;
     await mkdir(pathToTempDir);
 
     const tsFilesToCheck: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const { name, file } = files[i]!;
+    for (let i = 0; i < scriptFiles.length; i++) {
+      const { name, file } = scriptFiles[i]!;
 
       console.log(`-----${name}-----`);
 
@@ -134,8 +156,8 @@ async function run() {
     }
 
 
-    for (let i = 0; i < files.length; i++) {
-      const { name, file } = files[i]!;
+    for (let i = 0; i < scriptFiles.length; i++) {
+      const { name, file } = scriptFiles[i]!;
 
       console.log(`-----${name}-----`);
 
