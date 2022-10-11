@@ -3,6 +3,7 @@ declare type List<T> = {
 }
 
 declare type Datasource<T> = {
+  item: T | null;
   items: List<T> | null;
 
   load(config?: { success: () => void; failure?: (e: Error) => void }): void;

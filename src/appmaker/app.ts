@@ -2,8 +2,17 @@ export interface Model {
   name: string; fields: Array<{ name: string; type: string; }>; dataSources: Array<{ name: string; }>;
 }
 
+export interface View {
+  name: string; key: string; class: string; isViewFragment: boolean;
+}
+
 export class App {
+  private views: Array<View> = [];
   private models: Array<Model> = [];
+
+  addView(view: View) {
+    this.views.push(view);
+  }
 
   addModel(model: Model) {
     this.models.push(model);
@@ -16,6 +25,8 @@ export class App {
       .map(model => ({ modelType: generateTypeForModel(model.fields), dataSources: model.dataSources }))
       .flatMap(model => model.dataSources.map(datasource => generateTypeForDataSource(datasource, model.modelType)))
       .join('\n');
+    const views = this.views.filter(view => !view.isViewFragment).map(view => `${view.name}: Widget;`).join('\n')
+    const viewFragments = this.views.filter(view => view.isViewFragment).map(view => `${view.name}: Widget;`).join('\n')
 
     return `
     declare type List<T> = {
@@ -23,6 +34,7 @@ export class App {
     }
     
     declare type Datasource<T> = {
+      item: T | null;
       items: List<T> | null;
     
       load(config?: { success: () => void; failure?: (e: Error) => void }): void;
@@ -51,9 +63,13 @@ export class App {
     declare const app: {
       view: Panel;
       // TODO: can be generated
-      views: Record<string, Widget | undefined>;
+      views: {
+        ${views}
+      };
       // TODO: can be generated
-      viewFragments: Record<string, Widget | undefined>;
+      viewFragments: {
+        ${viewFragments}
+      };
       // TODO: think about generating
       datasources: {
         ${dataSources}

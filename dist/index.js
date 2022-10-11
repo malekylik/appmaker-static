@@ -17,7 +17,10 @@ const mkdir = promisify(oldMkDir);
 const copyFile = promisify(oldCopyFile);
 const exec = promisify(require('node:child_process').exec);
 const passedPath = process.argv[2];
+const getViewName = (view) => { var _a, _b; return (_b = (_a = view.component.property.find(property => property.name === 'name')) === null || _a === void 0 ? void 0 : _a['#text']) !== null && _b !== void 0 ? _b : ''; };
+const getIsViewFragment = (view) => view.component.property.find(property => property.name === 'isCustomWidget');
 async function run() {
+    var _a;
     if (!passedPath) {
         console.log('Pass path as second arg');
         process.exit(1);
@@ -50,6 +53,7 @@ async function run() {
         ]);
         const scriptsNames = await readdir(`${pathToProject}/scripts`);
         const modelsNames = await readdir(`${pathToProject}/models`);
+        const viewsNames = await readdir(`${pathToProject}/views`);
         // TODO: fix file path to eslint config
         const linterConfig = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
         const tsconfigConfig = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
@@ -92,7 +96,30 @@ async function run() {
             };
             app.addModel(model);
         }
-        console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
+        const viewsFiles = [];
+        for (let i = 0; i < viewsNames.length; i++) {
+            const scriptXML = await readFile(`${pathToProject}/views/${viewsNames[i]}`, 'utf-8');
+            const options = {
+                ignoreAttributes: false,
+                attributeNamePrefix: '',
+            };
+            const parser = new XMLParser(options);
+            let jsonObj = parser.parse(scriptXML);
+            viewsFiles.push({
+                name: viewsNames[i],
+                path: `${pathToProject}/views/${viewsNames[i]}`,
+                file: jsonObj,
+            });
+            const view = {
+                name: getViewName(viewsFiles[i].file),
+                key: viewsFiles[i].file.component.key,
+                class: viewsFiles[i].file.component.class,
+                isViewFragment: !!((_a = getIsViewFragment(viewsFiles[i].file)) === null || _a === void 0 ? void 0 : _a['#text']),
+            };
+            app.addView(view);
+        }
+        // console.log('modelFiles', viewsFiles.map(view => ({ name: view.name, isViewFragment: !!getIsViewFragment(view.file)?.['#text'] })).sort((a, b) => Number(a.isViewFragment) - Number(b.isViewFragment)));
+        // console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
         const pathToTempDir = `${__dirname}/temp`;
         await mkdir(pathToTempDir);
         const tsFilesToCheck = [];
