@@ -1,6 +1,8 @@
 declare module 'logger' {
   interface Logger {
-    error(s: string): void;
+    debug(s: unknown): void;
+    warning(s: unknown): void;
+    error(s: unknown): void;
   }
 
   const logger: Logger;
