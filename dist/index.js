@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile } = require('fs');
+const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
 const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
 const path = require('path');
@@ -15,6 +15,7 @@ const writeFile = promisify(oldWriteFile);
 const rm = promisify(oldRm);
 const mkdir = promisify(oldMkDir);
 const copyFile = promisify(oldCopyFile);
+const access = promisify(oldAccess);
 const exec = promisify(require('node:child_process').exec);
 const passedPath = process.argv[2];
 const getViewName = (view) => { var _a, _b; return (_b = (_a = view.component.property.find(property => property.name === 'name')) === null || _a === void 0 ? void 0 : _a['#text']) !== null && _b !== void 0 ? _b : ''; };
@@ -90,8 +91,8 @@ async function run() {
                 file: jsonObj,
             });
             const model = {
-                name: modelsNames[i],
-                fields: jsonObj.model.field,
+                name: jsonObj.model.name,
+                fields: jsonObj.model.field.map(field => ({ ...field, required: field.required === 'true' ? true : false })),
                 dataSources: Array.isArray(jsonObj.model.dataSource) ? jsonObj.model.dataSource : [jsonObj.model.dataSource]
             };
             app.addModel(model);
@@ -121,6 +122,11 @@ async function run() {
         // console.log('modelFiles', viewsFiles.map(view => ({ name: view.name, isViewFragment: !!getIsViewFragment(view.file)?.['#text'] })).sort((a, b) => Number(a.isViewFragment) - Number(b.isViewFragment)));
         // console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
         const pathToTempDir = `${__dirname}/temp`;
+        try {
+            await access(pathToTempDir, constants.F_OK);
+            await rm(pathToTempDir, { recursive: true });
+        }
+        catch { }
         await mkdir(pathToTempDir);
         const tsFilesToCheck = [];
         for (let i = 0; i < scriptFiles.length; i++) {

@@ -1,5 +1,5 @@
 export interface Model {
-  name: string; fields: Array<{ name: string; type: string; }>; dataSources: Array<{ name: string; }>;
+  name: string; fields: Array<{ name: string; type: string; required: boolean; }>; dataSources: Array<{ name: string; }>;
 }
 
 export interface View {
@@ -19,14 +19,15 @@ export class App {
   }
 
   generateAppDeclarationFile(): string {
-    const generateTypeForModel = (fields: Model['fields']) => `{ ${fields.map(field => `${field.name}: ${field.type};`).join('\n')} }`;
+    const generateTypeForModel = (fields: Model['fields']) => `{\n${fields.map(field => `${field.name}: ${field.required ? field.type : field.type + ' | null'};`).join('\n')}\n}`;
     const generateTypeForDataSource = (datasource: Model['dataSources'][number], modelType: string) => `${datasource.name}: Datasource<${modelType}>;`;
     const dataSources = this.models
-      .map(model => ({ modelType: generateTypeForModel(model.fields), dataSources: model.dataSources }))
+      .map(model => ({ modelType: model.name, dataSources: model.dataSources }))
       .flatMap(model => model.dataSources.map(datasource => generateTypeForDataSource(datasource, model.modelType)))
       .join('\n');
     const views = this.views.filter(view => !view.isViewFragment).map(view => `${view.name}: Widget;`).join('\n')
     const viewFragments = this.views.filter(view => view.isViewFragment).map(view => `${view.name}: Widget;`).join('\n')
+    const models = this.models.map(model => `declare type ${model.name} = ${generateTypeForModel(model.fields)};`).join('\n\n');
 
     return `
     declare type List<T> = {
@@ -80,6 +81,7 @@ export class App {
     
       closeDialog(): void;
     };
-    `;
+    
+    ${models}`;
   }
 }
