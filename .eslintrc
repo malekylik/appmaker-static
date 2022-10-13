@@ -8,6 +8,7 @@
     "no-extra-semi": "error",
     "quotes": ["error", "single"],
     "no-unused-expressions": "error",
-    "no-trailing-spaces": "error"
+    "no-trailing-spaces": "error",
+    "no-unused-vars": "error"
   }
 }
