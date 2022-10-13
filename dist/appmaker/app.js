@@ -1,6 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.App = void 0;
+function converAppMakerPropertyTypeToTSType(type) {
+    switch (type) {
+        case 'Number': return 'number';
+        case 'String': return 'string';
+        case 'Boolean': return 'boolean';
+    }
+    return type;
+}
 class App {
     constructor() {
         this.views = [];
@@ -13,7 +21,7 @@ class App {
         this.models.push(model);
     }
     generateAppDeclarationFile() {
-        const generateTypeForModel = (fields) => `{\n${fields.map(field => `${field.name}: ${field.required ? field.type : field.type + ' | null'};`).join('\n')}\n}`;
+        const generateTypeForModel = (fields) => `{\n${fields.map(field => `${field.name}: ${field.required ? converAppMakerPropertyTypeToTSType(field.type) : converAppMakerPropertyTypeToTSType(field.type) + ' | null'};`).join('\n')}\n}`;
         const generateTypeForDataSource = (datasource, modelType) => `${datasource.name}: Datasource<${modelType}>;`;
         const dataSources = this.models
             .map(model => ({ modelType: model.name, dataSources: model.dataSources }))

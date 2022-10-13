@@ -6,6 +6,16 @@ export interface View {
   name: string; key: string; class: string; isViewFragment: boolean;
 }
 
+function converAppMakerPropertyTypeToTSType(type: string): string {
+  switch(type) {
+    case 'Number': return 'number';
+    case 'String': return 'string';
+    case 'Boolean': return 'boolean';
+  }
+
+  return type;
+}
+
 export class App {
   private views: Array<View> = [];
   private models: Array<Model> = [];
@@ -19,7 +29,7 @@ export class App {
   }
 
   generateAppDeclarationFile(): string {
-    const generateTypeForModel = (fields: Model['fields']) => `{\n${fields.map(field => `${field.name}: ${field.required ? field.type : field.type + ' | null'};`).join('\n')}\n}`;
+    const generateTypeForModel = (fields: Model['fields']) => `{\n${fields.map(field => `${field.name}: ${field.required ? converAppMakerPropertyTypeToTSType(field.type) : converAppMakerPropertyTypeToTSType(field.type) + ' | null'};`).join('\n')}\n}`;
     const generateTypeForDataSource = (datasource: Model['dataSources'][number], modelType: string) => `${datasource.name}: Datasource<${modelType}>;`;
     const dataSources = this.models
       .map(model => ({ modelType: model.name, dataSources: model.dataSources }))

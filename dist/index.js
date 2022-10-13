@@ -142,7 +142,9 @@ async function run() {
         if (tsFilesToCheck.length > 0) {
             const pathToTypes = `${pathToTempDir}/type`;
             const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
-            const conf = { ...tsconfigConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+            const conf = { ...tsconfigConfig.compilerOptions,
+                moduleResolution: ts.ModuleResolutionKind.NodeJs,
+                noEmit: true, allowJs: true, checkJs: true };
             writeFile(`${pathToTempDir}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
             await mkdir(pathToTypes);
             await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
