@@ -11,6 +11,7 @@ import { lint } from './validate';
 import { ModelFile, ScriptFile, ViewFile } from './appmaker';
 import * as ts from 'typescript';
 import { App, Model, View } from './appmaker/app';
+import { callAppMakerApp } from './appmaker-network';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -22,6 +23,9 @@ const copyFile = promisify(oldCopyFile);
 const access = promisify(oldAccess);
 const exec = promisify(require('node:child_process').exec);
 
+callAppMakerApp();
+
+/*
 const passedPath = process.argv[2];
 
 const getViewName = (view: ViewFile) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
@@ -230,7 +234,7 @@ async function run() {
   //        console.log('res', generateResultXML(jsonObj, messages.output));
             const res = generateResultXML(file, messages.output);
   //          const res = scriptXML.replace(/CDATA\[[\s\S]*\]/, 'CDATA[' + messages.output + ']]');
-          console.log('lint res', messages.messages, res);
+          console.log('lint res', messages.messages);
           writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
         } else if(messages.messages.length > 0) {
           console.log('Not fixed', messages.messages, messages.output);
@@ -255,3 +259,4 @@ async function run() {
 }
 
 run();
+*/
