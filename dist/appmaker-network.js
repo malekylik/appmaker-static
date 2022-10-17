@@ -37,12 +37,7 @@ async function app(page, applicationId) {
     console.log(`writting to ${appZipPath}`);
     await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
 }
-async function callAppMakerApp() {
-    const credentials = {
-        login: 'kalinouski@google.com',
-        password: '2GbMwPh7t',
-    };
-    const applicationId = 'RdeRXXpJpD';
+async function callAppMakerApp(applicationId, credentials) {
     const DEFAULT_ARGS = [
         '--disable-background-networking',
         '--disable-extensions',
@@ -54,22 +49,32 @@ async function callAppMakerApp() {
         headless: 'chrome',
         ignoreDefaultArgs: DEFAULT_ARGS,
         executablePath: '/usr/bin/google-chrome',
+        // very offten cause an error, deleting this folder solve the error
         userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
     });
     console.log('open page');
     const page = await browser.newPage();
     await new Promise(res => setTimeout(res, 2000));
     console.log('newPage');
+    // TODO: not always wait correctly
     await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, { waitUntil: 'networkidle2' });
     if (isAuthPage(page.url())) {
-        await auth(page, credentials);
+        try {
+            await auth(page, credentials);
+        }
+        catch (e) {
+            // TODO: think how to move in one place
+            await browser.close();
+            throw e;
+        }
     }
     if (isAppPage(page.url())) {
         try {
             await app(page, applicationId);
         }
         catch (e) {
-            console.log(e);
+            await browser.close();
+            throw e;
         }
     }
     else {

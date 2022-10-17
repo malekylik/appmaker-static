@@ -56,13 +56,7 @@ async function app(page: puppeteer.Page, applicationId: string) {
 }
 
 
-export async function callAppMakerApp () {
-  const credentials = {
-    login: '',
-    password: '',
-  };
-
-  const applicationId = 'RdeRXXpJpD';
+export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }) {
 
   const DEFAULT_ARGS: Array<string> = [
   '--disable-background-networking',
@@ -77,9 +71,11 @@ export async function callAppMakerApp () {
     headless: 'chrome',
     ignoreDefaultArgs: DEFAULT_ARGS,
     executablePath: '/usr/bin/google-chrome',
+    // very offten cause an error, deleting this folder solve the error
     userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
   });
 
+  try {
   console.log('open page');
 
   const page = await browser.newPage();
@@ -96,16 +92,17 @@ export async function callAppMakerApp () {
   } 
 
   if (isAppPage(page.url())) {
-    try {
-      await app(page, applicationId);
-    } catch (e) { console.log(e); }
+    await app(page, applicationId);
   } else {
     console.log('unknown page');
   }
 
   console.log('taking screen');
   await takeScreenshoot(page);
-  console.log('closing');
-
-  await browser.close();
+  } catch (e) {
+    throw e;
+  } finally {
+    console.log('closing');
+    await browser.close();
+  }
 };

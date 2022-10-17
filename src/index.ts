@@ -10,6 +10,7 @@ import { generateResultXML } from './generate';
 import { lint } from './validate';
 import { ModelFile, ScriptFile, ViewFile } from './appmaker';
 import * as ts from 'typescript';
+import * as commandLineArgs from 'command-line-args';
 import { App, Model, View } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
 
@@ -23,19 +24,57 @@ const copyFile = promisify(oldCopyFile);
 const access = promisify(oldAccess);
 const exec = promisify(require('node:child_process').exec);
 
-callAppMakerApp();
+// const passedPath = process.argv[2];
 
-/*
-const passedPath = process.argv[2];
+const optionDefinitions = [
+  // { name: 'appId', alias: 'v', type: Boolean },
+  { name: 'appId', type: String },
+  // { name: 'login', type: String, multiple: true, defaultOption: true },
+  { name: 'login', type: String },
+  { name: 'password', type: String },
+];
+
+//  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
+
+interface Options {
+  appId?: string; login?: string; password?: string;
+}
+
+const options: Options = commandLineArgs(optionDefinitions) as Options;
 
 const getViewName = (view: ViewFile) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
 const getIsViewFragment = (view: ViewFile) => view.component.property.find(property => property.name === 'isCustomWidget');
 
 async function run() {
-  if (!passedPath) {
-    console.log('Pass path as second arg');
+  const {
+    appId, login, password,
+  } = options;
+
+
+  if (appId) {
+    if (login === undefined || password === undefined) {
+      console.log('For using script in remote mode please pass login and password');
+
+      process.exit(1);
+    }
+  } else {
+    console.log('only remote mode');
     process.exit(1);
   }
+
+  const credentials = {
+    login: login,
+    password: password,
+  };
+  const applicationId = appId;
+
+  // if (!passedPath) {
+  //   console.log('Pass path as second arg');
+  //   process.exit(1);
+  // }
+
+  await callAppMakerApp(applicationId, credentials);
+  let passedPath = __dirname + '/app.zip';
 
   let pathStat = null;
 
@@ -211,6 +250,11 @@ async function run() {
 
       if (allDiagnostics.length) {
         console.log('TS check doenst pass. Skip the rest');
+
+        if (isZip) {
+          await rm(pathToProject, { recursive: true });
+        }
+
         process.exit(1);
       }
     }
@@ -259,4 +303,3 @@ async function run() {
 }
 
 run();
-*/
