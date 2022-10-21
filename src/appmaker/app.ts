@@ -68,6 +68,8 @@ export class App {
       // TODO: think about generating
       properties: Record<string, string>;
     } & WidgetCommon;
+
+    declare type View = Panel;
     
     declare type Widget = Panel | LayoutWidget;
     

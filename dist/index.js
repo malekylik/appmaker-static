@@ -26,6 +26,7 @@ const optionDefinitions = [
     // { name: 'login', type: String, multiple: true, defaultOption: true },
     { name: 'login', type: String },
     { name: 'password', type: String },
+    // { name: 'password', type: String },
 ];
 const options = commandLineArgs(optionDefinitions);
 const getViewName = (view) => { var _a, _b; return (_b = (_a = view.component.property.find(property => property.name === 'name')) === null || _a === void 0 ? void 0 : _a['#text']) !== null && _b !== void 0 ? _b : ''; };
@@ -163,7 +164,7 @@ async function run() {
             if (file.script['#text']) {
                 const pathToFileTSFile = `${pathToTempDir}/${name.replace('.xml', '.js')}`;
                 console.log(pathToFileTSFile);
-                await writeFile(pathToFileTSFile, file.script['#text']);
+                await writeFile(pathToFileTSFile, String(file.script['#text']));
                 tsFilesToCheck.push(pathToFileTSFile);
             }
         }

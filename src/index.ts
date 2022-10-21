@@ -32,6 +32,7 @@ const optionDefinitions = [
   // { name: 'login', type: String, multiple: true, defaultOption: true },
   { name: 'login', type: String },
   { name: 'password', type: String },
+  // { name: 'password', type: String },
 ];
 
 //  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
@@ -214,7 +215,7 @@ async function run() {
       if (file.script['#text']) {
         const pathToFileTSFile = `${pathToTempDir}/${name.replace('.xml', '.js')}`;
         console.log(pathToFileTSFile);
-        await writeFile(pathToFileTSFile, file.script['#text']);
+        await writeFile(pathToFileTSFile, String(file.script['#text']));
 
         tsFilesToCheck.push(pathToFileTSFile);
       }
@@ -251,9 +252,9 @@ async function run() {
       if (allDiagnostics.length) {
         console.log('TS check doenst pass. Skip the rest');
 
-        if (isZip) {
-          await rm(pathToProject, { recursive: true });
-        }
+       if (isZip) {
+         await rm(pathToProject, { recursive: true });
+       }
 
         process.exit(1);
       }

@@ -4,7 +4,7 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
-import { getXSRFToken, exportProject, takeScreenshoot } from './appmaker-network-actions';
+import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, executeCommand, getContent } from './appmaker-network-actions';
 
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
@@ -28,11 +28,28 @@ async function auth(page: puppeteer.Page, credentials: { login: string; password
 
   const submitElement = await page.$('#signInButton');
 
+  await new Promise(res => setTimeout(res, 2000));
+
+  if (!isAppPage(page.url())) {
+    return;
+  }
+
   console.log('click');
+  // According to this MDN documentation, an element's offsetParent property will return null whenever it, or any of its parents, is hidden via the display style property.
+  const clicked = await submitElement!.evaluate(b => {
+    if ((b as any).offsetParent === null) {
+      (b as any).click();
 
-  await submitElement!.click();
+      return true;
+    }
 
-  console.log('waiting for touch');
+    return false;
+  });
+
+  console.log('waiting for touch', clicked);
+
+  // TODO: what if credentials have already been provided and only touch is left
+  // await new Promise(res => setTimeout(res, 5000));
 
   await page.waitForNavigation({ waitUntil: 'networkidle2' });
 }
@@ -43,6 +60,7 @@ async function app(page: puppeteer.Page, applicationId: string) {
   const xsrfToken = await getXSRFToken(page);
 
   console.log('get xsrf token', xsrfToken);
+  
   console.log('try to export project');
 
   const appZipText = await page.evaluate(exportProject, applicationId, xsrfToken);
@@ -55,9 +73,7 @@ async function app(page: puppeteer.Page, applicationId: string) {
   await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
 }
 
-
 export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }) {
-
   const DEFAULT_ARGS: Array<string> = [
   '--disable-background-networking',
 
