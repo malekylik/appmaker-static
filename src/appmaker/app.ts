@@ -1,3 +1,6 @@
+import { ViewFile } from '../appmaker';
+import { AppMakerModelFolderContent, AppMakerViewFolderContent } from '../io';
+
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; }>; dataSources: Array<{ name: string; }>;
 }
@@ -5,6 +8,9 @@ export interface Model {
 export interface View {
   name: string; key: string; class: string; isViewFragment: boolean;
 }
+
+const getViewName = (view: ViewFile) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
+const getIsViewFragment = (view: ViewFile) => !!view.component.property.find(property => property.name === 'isCustomWidget')?.['#text'];
 
 function converAppMakerPropertyTypeToTSType(type: string): string {
   switch(type) {
@@ -96,4 +102,31 @@ export class App {
     
     ${models}`;
   }
+}
+
+export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent): void {
+  modelsFiles.forEach((modelFile) => {
+    const file = modelFile.file;
+
+    const model: Model = {
+      name: file.model.name,
+      fields: file.model.field.map(field => ({ ...field, required: field.required === 'true' ? true : false })),
+      dataSources: Array.isArray(file.model.dataSource) ? file.model.dataSource : [file.model.dataSource]
+    };
+  
+    app.addModel(model);
+  });
+
+  viewsFiles.forEach((viewFile) => {
+    const file = viewFile.file;
+
+    const view: View = {
+      name: getViewName(file),
+      key: file.component.key,
+      class: file.component.class,
+      isViewFragment: getIsViewFragment(file),
+    };
+
+    app.addView(view);
+  });
 }

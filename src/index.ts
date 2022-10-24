@@ -11,8 +11,9 @@ import { lint } from './validate';
 import { ModelFile, ScriptFile, ViewFile } from './appmaker';
 import * as ts from 'typescript';
 import * as commandLineArgs from 'command-line-args';
-import { App, Model, View } from './appmaker/app';
+import { App, initAppMakerApp, Model, View } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
+import { getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -42,9 +43,6 @@ interface Options {
 }
 
 const options: Options = commandLineArgs(optionDefinitions) as Options;
-
-const getViewName = (view: ViewFile) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
-const getIsViewFragment = (view: ViewFile) => view.component.property.find(property => property.name === 'isCustomWidget');
 
 async function run() {
   const {
@@ -102,99 +100,26 @@ async function run() {
   }
 
   if (pathStat.isDirectory() || isZip) {
-    const [scriptStat] = await Promise.all([
-        stat(`${pathToProject}/scripts`)
+    const [linterConfig, tsConfig] = await Promise.all([
+      readLinterConfig(),
+      readTSConfig(),
     ]);
-    const scriptsNames: Array<string> = await readdir(`${pathToProject}/scripts`);
-    const modelsNames: Array<string> = await readdir(`${pathToProject}/models`);
-    const viewsNames: Array<string> = await readdir(`${pathToProject}/views`);
 
-    // TODO: fix file path to eslint config
-    const linterConfig = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
-    const tsconfigConfig: { compilerOptions: any } = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
+    const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
+      getScriptsNames(pathToProject),
+      getModelsNames(pathToProject),
+      getViewsNames(pathToProject),
+    ]);
 
-    const scriptFiles: Array<{ name: string; path: string; file: ScriptFile }> = [];
-    const emptyScripts: string[] = [];
+    const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
+      readAppMakerScripts(pathToProject, scriptsNames),
+      readAppMakerModels(pathToProject, modelsNames),
+      readAppMakerViews(pathToProject, viewsNames),
+    ]);
 
-    for (let i = 0; i < scriptsNames.length; i++) {
-      const scriptXML = await readFile(`${pathToProject}/scripts/${scriptsNames[i]}`, 'utf-8');
-      // console.log(scriptsNames[i], 'xml', scriptXML);
-
-      const options = {
-        ignoreAttributes : false,
-        attributeNamePrefix: '',
-      };
-
-      const parser = new XMLParser(options);
-      let jsonObj: ScriptFile = parser.parse(scriptXML);
-
-      scriptFiles.push({
-        name: scriptsNames[i]!,
-        path: `${pathToProject}/scripts/${scriptsNames[i]}`,
-        file: jsonObj,
-      });
-    }
-
-    const modelFiles: Array<{ name: string; path: string; file: ModelFile }> = [];
     const app = new App();
 
-    for (let i = 0; i < modelsNames.length; i++) {
-      const scriptXML = await readFile(`${pathToProject}/models/${modelsNames[i]}`, 'utf-8');
-
-      const options = {
-        ignoreAttributes : false,
-        attributeNamePrefix: '',
-      };
-
-      const parser = new XMLParser(options);
-      let jsonObj: ModelFile = parser.parse(scriptXML);
-
-      modelFiles.push({
-        name: modelsNames[i]!,
-        path: `${pathToProject}/models/${modelsNames[i]}`,
-        file: jsonObj,
-      });
-
-      const model: Model = {
-        name: jsonObj.model.name,
-        fields: jsonObj.model.field.map(field => ({ ...field, required: field.required === 'true' ? true : false })),
-        dataSources: Array.isArray(jsonObj.model.dataSource) ? jsonObj.model.dataSource : [jsonObj.model.dataSource]
-      };
-
-      app.addModel(model);
-    }
-
-    const viewsFiles: Array<{ name: string; path: string; file: ViewFile }> = [];
-
-    for (let i = 0; i < viewsNames.length; i++) {
-      const scriptXML = await readFile(`${pathToProject}/views/${viewsNames[i]}`, 'utf-8');
-
-      const options = {
-        ignoreAttributes : false,
-        attributeNamePrefix: '',
-      };
-
-      const parser = new XMLParser(options);
-      let jsonObj: ViewFile = parser.parse(scriptXML);
-
-      viewsFiles.push({
-        name: viewsNames[i]!,
-        path: `${pathToProject}/views/${viewsNames[i]}`,
-        file: jsonObj,
-      });
-
-      const view: View = {
-        name: getViewName(viewsFiles[i]!.file),
-        key: viewsFiles[i]!.file.component.key,
-        class: viewsFiles[i]!.file.component.class,
-        isViewFragment: !!getIsViewFragment(viewsFiles[i]!.file)?.['#text'],
-      };
-
-      app.addView(view);
-    }
-
-    // console.log('modelFiles', viewsFiles.map(view => ({ name: view.name, isViewFragment: !!getIsViewFragment(view.file)?.['#text'] })).sort((a, b) => Number(a.isViewFragment) - Number(b.isViewFragment)));
-    // console.log('modelFiles', JSON.stringify(modelFiles, null, 2));
+    initAppMakerApp(app, modelsFiles, viewsFiles);
 
     const pathToTempDir = `${__dirname}/temp`;
 
@@ -207,15 +132,15 @@ async function run() {
 
     const tsFilesToCheck: string[] = [];
 
-    for (let i = 0; i < scriptFiles.length; i++) {
-      const { name, file } = scriptFiles[i]!;
+    for (let i = 0; i < scriptsFiles.length; i++) {
+      const { name, file } = scriptsFiles[i]!;
 
       console.log(`-----${name}-----`);
 
       if (file.script['#text']) {
         const pathToFileTSFile = `${pathToTempDir}/${name.replace('.xml', '.js')}`;
         console.log(pathToFileTSFile);
-        await writeFile(pathToFileTSFile, String(file.script['#text']));
+        await writeFile(pathToFileTSFile, file.script['#text']);
 
         tsFilesToCheck.push(pathToFileTSFile);
       }
@@ -224,7 +149,7 @@ async function run() {
     if (tsFilesToCheck.length > 0) {
       const pathToTypes = `${pathToTempDir}/type`;
       const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
-      const conf = { ...tsconfigConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+      const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
       writeFile(`${pathToTempDir}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
 
       await mkdir(pathToTypes);
@@ -260,9 +185,10 @@ async function run() {
       }
     }
 
+    const emptyScripts: string[] = [];
 
-    for (let i = 0; i < scriptFiles.length; i++) {
-      const { name, file } = scriptFiles[i]!;
+    for (let i = 0; i < scriptsFiles.length; i++) {
+      const { name, file } = scriptsFiles[i]!;
 
       console.log(`-----${name}-----`);
 

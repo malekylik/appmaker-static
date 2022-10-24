@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.App = void 0;
+exports.initAppMakerApp = exports.App = void 0;
+const getViewName = (view) => { var _a, _b; return (_b = (_a = view.component.property.find(property => property.name === 'name')) === null || _a === void 0 ? void 0 : _a['#text']) !== null && _b !== void 0 ? _b : ''; };
+const getIsViewFragment = (view) => { var _a; return !!((_a = view.component.property.find(property => property.name === 'isCustomWidget')) === null || _a === void 0 ? void 0 : _a['#text']); };
 function converAppMakerPropertyTypeToTSType(type) {
     switch (type) {
         case 'Number': return 'number';
@@ -89,3 +91,25 @@ class App {
     }
 }
 exports.App = App;
+function initAppMakerApp(app, modelsFiles, viewsFiles) {
+    modelsFiles.forEach((modelFile) => {
+        const file = modelFile.file;
+        const model = {
+            name: file.model.name,
+            fields: file.model.field.map(field => ({ ...field, required: field.required === 'true' ? true : false })),
+            dataSources: Array.isArray(file.model.dataSource) ? file.model.dataSource : [file.model.dataSource]
+        };
+        app.addModel(model);
+    });
+    viewsFiles.forEach((viewFile) => {
+        const file = viewFile.file;
+        const view = {
+            name: getViewName(file),
+            key: file.component.key,
+            class: file.component.class,
+            isViewFragment: getIsViewFragment(file),
+        };
+        app.addView(view);
+    });
+}
+exports.initAppMakerApp = initAppMakerApp;
