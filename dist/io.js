@@ -1,11 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readAppMakerViews = exports.readAppMakerSingleView = exports.readAppMakerModels = exports.readAppMakerSingleModel = exports.readAppMakerScripts = exports.readAppMakerSingleScript = exports.getViewsNames = exports.getModelsNames = exports.getScriptsNames = exports.readLinterConfig = exports.readTSConfig = exports.getPathToViews = exports.getPathToModels = exports.getPathToScrips = void 0;
+exports.generateJSProjectForAppMaker = exports.readAppMakerViews = exports.readAppMakerSingleView = exports.readAppMakerModels = exports.readAppMakerSingleModel = exports.readAppMakerScripts = exports.readAppMakerSingleScript = exports.getViewsNames = exports.getModelsNames = exports.getScriptsNames = exports.readLinterConfig = exports.readTSConfig = exports.getPathToViews = exports.getPathToModels = exports.getPathToScrips = void 0;
 const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
 const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
+const ts = require("typescript");
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
+const access = promisify(oldAccess);
+const writeFile = promisify(oldWriteFile);
+const rm = promisify(oldRm);
+const mkdir = promisify(oldMkDir);
+const copyFile = promisify(oldCopyFile);
 function getPathToScrips(pathToProject) {
     return `${pathToProject}/scripts`;
 }
@@ -111,3 +117,31 @@ async function readAppMakerViews(pathToProject, modelsNames) {
     return viewFiles;
 }
 exports.readAppMakerViews = readAppMakerViews;
+async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfig, app) {
+    try {
+        await access(pathToProject, constants.F_OK);
+        await rm(pathToProject, { recursive: true });
+    }
+    catch { }
+    await mkdir(pathToProject);
+    const tsFilesToCheck = [];
+    for (let i = 0; i < scriptsFiles.length; i++) {
+        const { name, file } = scriptsFiles[i];
+        console.log(`-----${name}-----`);
+        if (file.script['#text']) {
+            const pathToFileTSFile = `${pathToProject}/${name.replace('.xml', '.js')}`;
+            console.log(pathToFileTSFile);
+            await writeFile(pathToFileTSFile, file.script['#text']);
+            tsFilesToCheck.push(pathToFileTSFile);
+        }
+    }
+    const pathToTypes = `${pathToProject}/type`;
+    const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
+    const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+    writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+    await mkdir(pathToTypes);
+    await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
+    await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
+    return files;
+}
+exports.generateJSProjectForAppMaker = generateJSProjectForAppMaker;

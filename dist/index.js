@@ -2,15 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
 const { promisify } = require('util');
-const { XMLParser } = require('fast-xml-parser');
 const path = require('path');
 const generate_1 = require("./generate");
 const validate_1 = require("./validate");
-const ts = require("typescript");
 const commandLineArgs = require("command-line-args");
 const app_1 = require("./appmaker/app");
 const appmaker_network_1 = require("./appmaker-network");
 const io_1 = require("./io");
+const report_1 = require("./report");
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
 const readFile = promisify(oldReadFile);
@@ -93,46 +92,10 @@ async function run() {
         const app = new app_1.App();
         (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles);
         const pathToTempDir = `${__dirname}/temp`;
-        try {
-            await access(pathToTempDir, constants.F_OK);
-            await rm(pathToTempDir, { recursive: true });
-        }
-        catch { }
-        await mkdir(pathToTempDir);
-        const tsFilesToCheck = [];
-        for (let i = 0; i < scriptsFiles.length; i++) {
-            const { name, file } = scriptsFiles[i];
-            console.log(`-----${name}-----`);
-            if (file.script['#text']) {
-                const pathToFileTSFile = `${pathToTempDir}/${name.replace('.xml', '.js')}`;
-                console.log(pathToFileTSFile);
-                await writeFile(pathToFileTSFile, file.script['#text']);
-                tsFilesToCheck.push(pathToFileTSFile);
-            }
-        }
-        if (tsFilesToCheck.length > 0) {
-            const pathToTypes = `${pathToTempDir}/type`;
-            const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
-            const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
-            writeFile(`${pathToTempDir}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
-            await mkdir(pathToTypes);
-            await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
-            await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
-            let program = ts.createProgram(files, conf);
-            let emitResult = program.emit();
-            let allDiagnostics = ts
-                .getPreEmitDiagnostics(program)
-                .concat(emitResult.diagnostics);
-            allDiagnostics.forEach(diagnostic => {
-                if (diagnostic.file) {
-                    let { line, character } = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start);
-                    let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-                    console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
-                }
-                else {
-                    console.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
-                }
-            });
+        const generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToTempDir, scriptsFiles, tsConfig, app);
+        if (generatedFiles.length > 0) {
+            const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
+            (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
             if (allDiagnostics.length) {
                 console.log('TS check doenst pass. Skip the rest');
                 if (isZip) {

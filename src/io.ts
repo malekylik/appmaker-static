@@ -7,9 +7,16 @@ const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
 import { ModelFile, ScriptFile, ViewFile } from './appmaker';
 import { Linter } from 'eslint';
+import * as ts from 'typescript';
+import { App } from './appmaker/app';
 
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
+const access = promisify(oldAccess);
+const writeFile = promisify(oldWriteFile);
+const rm = promisify(oldRm);
+const mkdir = promisify(oldMkDir);
+const copyFile = promisify(oldCopyFile);
 
 export function getPathToScrips(pathToProject: string): string {
   return `${pathToProject}/scripts`;
@@ -23,9 +30,10 @@ export function getPathToViews(pathToProject: string): string {
   return `${pathToProject}/views`;
 }
 
+export type TSConfig = { compilerOptions: any };
 
-export async function readTSConfig() {
-  const tsConfig: { compilerOptions: any } = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
+export async function readTSConfig(): Promise<TSConfig> {
+  const tsConfig: TSConfig = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
 
   return tsConfig;
 }
@@ -148,4 +156,41 @@ export async function readAppMakerViews(pathToProject: string, modelsNames: Arra
   return viewFiles;
 }
 
+export async function generateJSProjectForAppMaker(
+  pathToProject: string, scriptsFiles: AppMakerScriptFolderContent, tsConfig: TSConfig, app: App
+) {
+  try {
+    await access(pathToProject, constants.F_OK);
+    await rm(pathToProject, { recursive: true });
+  } catch {}
 
+  await mkdir(pathToProject);
+
+  const tsFilesToCheck: string[] = [];
+
+  for (let i = 0; i < scriptsFiles.length; i++) {
+    const { name, file } = scriptsFiles[i]!;
+
+    console.log(`-----${name}-----`);
+
+    if (file.script['#text']) {
+      const pathToFileTSFile = `${pathToProject}/${name.replace('.xml', '.js')}`;
+      console.log(pathToFileTSFile);
+      await writeFile(pathToFileTSFile, file.script['#text']);
+
+      tsFilesToCheck.push(pathToFileTSFile);
+    }
+  }
+
+  const pathToTypes = `${pathToProject}/type`;
+  const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
+  const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+  writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+
+  await mkdir(pathToTypes);
+
+  await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
+  await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
+
+  return files;
+}

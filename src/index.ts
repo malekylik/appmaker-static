@@ -4,16 +4,14 @@ const {
   constants,
 } = require('fs');
 const { promisify } = require('util');
-const { XMLParser } = require('fast-xml-parser');
 const path = require('path');
 import { generateResultXML } from './generate';
-import { lint } from './validate';
-import { ModelFile, ScriptFile, ViewFile } from './appmaker';
-import * as ts from 'typescript';
+import { checkTypes, lint } from './validate';
 import * as commandLineArgs from 'command-line-args';
 import { App, initAppMakerApp, Model, View } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
-import { getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
+import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
+import { printTSCheckDiagnostics } from './report';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -48,7 +46,6 @@ async function run() {
   const {
     appId, login, password,
   } = options;
-
 
   if (appId) {
     if (login === undefined || password === undefined) {
@@ -123,59 +120,15 @@ async function run() {
 
     const pathToTempDir = `${__dirname}/temp`;
 
-    try {
-      await access(pathToTempDir, constants.F_OK);
-      await rm(pathToTempDir, { recursive: true });
-    } catch {}
+    const generatedFiles = await generateJSProjectForAppMaker(pathToTempDir, scriptsFiles, tsConfig, app);
 
-    await mkdir(pathToTempDir);
+    if (generatedFiles.length > 0) {
+      const allDiagnostics = checkTypes(generatedFiles, tsConfig);
 
-    const tsFilesToCheck: string[] = [];
-
-    for (let i = 0; i < scriptsFiles.length; i++) {
-      const { name, file } = scriptsFiles[i]!;
-
-      console.log(`-----${name}-----`);
-
-      if (file.script['#text']) {
-        const pathToFileTSFile = `${pathToTempDir}/${name.replace('.xml', '.js')}`;
-        console.log(pathToFileTSFile);
-        await writeFile(pathToFileTSFile, file.script['#text']);
-
-        tsFilesToCheck.push(pathToFileTSFile);
-      }
-    }
-
-    if (tsFilesToCheck.length > 0) {
-      const pathToTypes = `${pathToTempDir}/type`;
-      const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
-      const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
-      writeFile(`${pathToTempDir}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
-
-      await mkdir(pathToTypes);
-
-      await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
-      await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
-
-      let program = ts.createProgram(files, conf);
-      let emitResult = program.emit();
-  
-      let allDiagnostics = ts
-        .getPreEmitDiagnostics(program)
-        .concat(emitResult.diagnostics);
-  
-      allDiagnostics.forEach(diagnostic => {
-        if (diagnostic.file) {
-          let { line, character } = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start!);
-          let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-          console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
-        } else {
-          console.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
-        }
-      });
+      printTSCheckDiagnostics(allDiagnostics);
 
       if (allDiagnostics.length) {
-        console.log('TS check doenst pass. Skip the rest');
+        console.log('TS check doesnt pass. Skip the rest');
 
        if (isZip) {
          await rm(pathToProject, { recursive: true });
@@ -183,6 +136,8 @@ async function run() {
 
         process.exit(1);
       }
+    } else {
+      console.log('No file to check for types. TS check skip')
     }
 
     const emptyScripts: string[] = [];
@@ -198,6 +153,7 @@ async function run() {
       if (file.script['#text']) {
         const messages = lint(file.script['#text'], linterConfig, scriptsNames[i]);
         // console.log('messages', messages);
+        // TODO: check can we write even it's fixe it partialy
         write = messages.fixed;
 
         if (write) {
