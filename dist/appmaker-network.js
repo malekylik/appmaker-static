@@ -67,8 +67,17 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
         userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
     });
-    console.log('open page');
-    const page = await browser.newPage();
+    let page = null;
+    try {
+        console.log('open page');
+        page = await browser.newPage();
+    }
+    catch (e) {
+        console.log('error: cant open page', e);
+        console.log('closing');
+        await browser.close();
+        throw e;
+    }
     try {
         await new Promise(res => setTimeout(res, 2000));
         console.log('newPage');

@@ -7,11 +7,11 @@ const { promisify } = require('util');
 const path = require('path');
 import { generateResultXML } from './generate';
 import { checkTypes, lint } from './validate';
-import * as commandLineArgs from 'command-line-args';
 import { App, initAppMakerApp, Model, View } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
 import { printTSCheckDiagnostics } from './report';
+import { parseCommandLineArgs } from './command-line';
 
 const stat = promisify(oldStat);
 const readdir = promisify(oldReaddir);
@@ -25,64 +25,10 @@ const exec = promisify(require('node:child_process').exec);
 
 // const passedPath = process.argv[2];
 
-const optionDefinitions = [
-  // { name: 'appId', alias: 'v', type: Boolean },
-  { name: 'appId', type: String },
-  // { name: 'login', type: String, multiple: true, defaultOption: true },
-  { name: 'login', type: String },
-  { name: 'password', type: String },
-  { name: 'outDir', type: String },
-  { name: 'headless', type: String }
-  // { name: 'password', type: String },
-];
-
 //  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
 
-interface Options {
-  appId?: string; login?: string; password?: string; outDir?: string;
-  headless?: string;
-}
-
-const options: Options = commandLineArgs(optionDefinitions) as Options;
-
 async function run() {
-  const {
-    appId, login, password, outDir = `${__dirname}/temp`,
-    headless,
-  } = options;
-
-  if (appId) {
-    if (login === undefined || password === undefined) {
-      console.log('For using script in remote mode please pass login and password');
-
-      process.exit(1);
-    }
-  } else {
-    console.log('only remote mode');
-    process.exit(1);
-  }
-
-  const credentials = {
-    login: login,
-    password: password,
-  };
-  const applicationId = appId;
-
-  const browserOptions: { headless?: boolean | 'chrome' } = {};
-
-  if (headless) {
-    if (headless === 'true') {
-      browserOptions.headless = true;
-    } else if (headless === 'false') {
-      browserOptions.headless = false;
-    } else if (headless === 'chrome') {
-      browserOptions.headless = 'chrome';
-    } else {
-      console.log(`unknown value for headless ${headless}. Stick with value "chrome". Possible values: true, false, chrome`);
-
-      browserOptions.headless = 'chrome';
-    }
-  }
+  const options = parseCommandLineArgs();
 
   // if (!passedPath) {
   //   console.log('Pass path as second arg');
@@ -91,7 +37,7 @@ async function run() {
 
   // let passedPath = __dirname + '/app.zip';
   // can be folder to zip project or unzip project folder
-  let passedPath = await callAppMakerApp(applicationId, credentials, browserOptions);
+  let passedPath = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
 
   let pathStat = null;
 
@@ -140,7 +86,7 @@ async function run() {
 
     initAppMakerApp(app, modelsFiles, viewsFiles);
 
-    const pathToGenerateJSProjectDir = outDir;
+    const pathToGenerateJSProjectDir = options.outDir;
 
     const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, app);
 
@@ -153,8 +99,12 @@ async function run() {
         console.log('TS check doesnt pass. Skip the rest');
 
         if (isZip) {
+          console.log('remove', passedPath);
+          await rm(passToZip);
+
+          console.log('remove', pathToProject);
           await rm(pathToProject, { recursive: true });
-        } 
+        }
 
         process.exit(1);
       }
@@ -190,8 +140,8 @@ async function run() {
       console.log('post actions');
 
       process.chdir(pathToProject);
-      console.log('zip to', '${outDir}/app.zip');
-      await exec(`zip -r "${outDir}/app.zip" *`);
+      console.log('zip to', `${options.outDir}/app.zip`);
+      await exec(`zip -r "${options.outDir}/app.zip" *`);
 
       console.log('remove', passedPath);
       await rm(passToZip);

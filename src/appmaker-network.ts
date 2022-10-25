@@ -94,9 +94,20 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
     userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
   });
 
-  console.log('open page');
+  let page = null;
 
-  const page = await browser.newPage();
+  try {
+    console.log('open page');
+
+    page = await browser.newPage()
+  } catch (e) {
+    console.log('error: cant open page', e);
+
+    console.log('closing');
+    await browser.close();
+
+    throw e;
+  }
 
   try {
     await new Promise(res => setTimeout(res, 2000));
