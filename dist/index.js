@@ -9,8 +9,8 @@ const appmaker_network_1 = require("./appmaker-network");
 const io_1 = require("./io");
 const report_1 = require("./report");
 const command_line_1 = require("./command-line");
+const handlers_1 = require("./handlers");
 const stat = promisify(oldStat);
-const rm = promisify(oldRm);
 const exec = promisify(require('node:child_process').exec);
 // const passedPath = process.argv[2];
 //  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
@@ -31,7 +31,7 @@ async function run() {
         console.log(`Couldn't find path: ${passedPath}`);
         process.exit(1);
     }
-    let passToZip = passedPath;
+    let pathToZip = passedPath;
     let pathToProject = passedPath;
     const isZip = path.extname(pathToProject) === '.zip';
     if (isZip) {
@@ -68,16 +68,13 @@ async function run() {
         if (generatedFiles.length > 0) {
             const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
             (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
-            // if (allDiagnostics.length) {
-            //   console.log('TS check doesnt pass. Skip the rest');
-            //   if (isZip) {
-            //     console.log('remove', passedPath);
-            //     await rm(passToZip);
-            //     console.log('remove', pathToProject);
-            //     await rm(pathToProject, { recursive: true });
-            //   }
-            //   process.exit(1);
-            // }
+            if (allDiagnostics.length) {
+                console.log('TS check doesnt pass. Skip the rest');
+                if (isZip) {
+                    await (0, handlers_1.postZipActionsHandler)(pathToZip, pathToProject, options.outDir);
+                }
+                process.exit(1);
+            }
         }
         else {
             console.log('No file to check for types. TS check skip');
@@ -88,14 +85,7 @@ async function run() {
         const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
         (0, report_1.printEmptyScripts)(emptyScripts);
         if (isZip) {
-            console.log('post actions');
-            process.chdir(pathToProject);
-            console.log('zip to', `${options.outDir}/app.zip`);
-            await exec(`zip -r "${options.outDir}/app.zip" *`);
-            console.log('remove', passedPath);
-            await rm(passToZip);
-            console.log('remove', pathToProject);
-            await rm(pathToProject, { recursive: true });
+            await (0, handlers_1.postZipActionsHandler)(pathToZip, pathToProject, options.outDir);
         }
     }
     else {

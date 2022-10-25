@@ -7,9 +7,9 @@ import { callAppMakerApp } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
 import { parseCommandLineArgs } from './command-line';
+import { postZipActionsHandler } from './handlers';
 
 const stat = promisify(oldStat);
-const rm = promisify(oldRm);
 const exec = promisify(require('node:child_process').exec);
 
 // const passedPath = process.argv[2];
@@ -37,7 +37,7 @@ async function run() {
     process.exit(1);
   }
 
-  let passToZip = passedPath;
+  let pathToZip = passedPath;
   let pathToProject = passedPath;
   const isZip = path.extname(pathToProject) === '.zip';
 
@@ -88,11 +88,7 @@ async function run() {
         console.log('TS check doesnt pass. Skip the rest');
 
         if (isZip) {
-          console.log('remove', passedPath);
-          await rm(passToZip);
-
-          console.log('remove', pathToProject);
-          await rm(pathToProject, { recursive: true });
+          await postZipActionsHandler(pathToZip, pathToProject, options.outDir);
         }
 
         process.exit(1);
@@ -110,18 +106,8 @@ async function run() {
     printEmptyScripts(emptyScripts);
 
    if (isZip) {
-      console.log('post actions');
-
-      process.chdir(pathToProject);
-      console.log('zip to', `${options.outDir}/app.zip`);
-      await exec(`zip -r "${options.outDir}/app.zip" *`);
-
-      console.log('remove', passedPath);
-      await rm(passToZip);
-
-      console.log('remove', pathToProject);
-      await rm(pathToProject, { recursive: true });
-    }
+    await postZipActionsHandler(pathToZip, pathToProject, options.outDir);
+   }
   } else {
     console.log('Doest support file or directory doesnt extist');
     process.exit(1);
