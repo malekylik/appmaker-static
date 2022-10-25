@@ -31,20 +31,24 @@ const optionDefinitions = [
   // { name: 'login', type: String, multiple: true, defaultOption: true },
   { name: 'login', type: String },
   { name: 'password', type: String },
+  { name: 'outDir', type: String },
+  { name: 'headless', type: String }
   // { name: 'password', type: String },
 ];
 
 //  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
 
 interface Options {
-  appId?: string; login?: string; password?: string;
+  appId?: string; login?: string; password?: string; outDir?: string;
+  headless?: string;
 }
 
 const options: Options = commandLineArgs(optionDefinitions) as Options;
 
 async function run() {
   const {
-    appId, login, password,
+    appId, login, password, outDir = `${__dirname}/temp`,
+    headless,
   } = options;
 
   if (appId) {
@@ -64,13 +68,30 @@ async function run() {
   };
   const applicationId = appId;
 
+  const browserOptions: { headless?: boolean | 'chrome' } = {};
+
+  if (headless) {
+    if (headless === 'true') {
+      browserOptions.headless = true;
+    } else if (headless === 'false') {
+      browserOptions.headless = false;
+    } else if (headless === 'chrome') {
+      browserOptions.headless = 'chrome';
+    } else {
+      console.log(`unknown value for headless ${headless}. Stick with value "chrome". Possible values: true, false, chrome`);
+
+      browserOptions.headless = 'chrome';
+    }
+  }
+
   // if (!passedPath) {
   //   console.log('Pass path as second arg');
   //   process.exit(1);
   // }
 
-  await callAppMakerApp(applicationId, credentials);
-  let passedPath = __dirname + '/app.zip';
+  // let passedPath = __dirname + '/app.zip';
+  // can be folder to zip project or unzip project folder
+  let passedPath = await callAppMakerApp(applicationId, credentials, browserOptions);
 
   let pathStat = null;
 
@@ -81,12 +102,13 @@ async function run() {
     process.exit(1);
   }
 
+  let passToZip = passedPath;
   let pathToProject = passedPath;
   const isZip = path.extname(pathToProject) === '.zip';
 
   if (isZip) {
     pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
-    console.log('zip', pathToProject);
+    console.log('unzip to', pathToProject);
     try {
       await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
     } catch (e) {
@@ -118,9 +140,9 @@ async function run() {
 
     initAppMakerApp(app, modelsFiles, viewsFiles);
 
-    const pathToTempDir = `${__dirname}/temp`;
+    const pathToGenerateJSProjectDir = outDir;
 
-    const generatedFiles = await generateJSProjectForAppMaker(pathToTempDir, scriptsFiles, tsConfig, app);
+    const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, app);
 
     if (generatedFiles.length > 0) {
       const allDiagnostics = checkTypes(generatedFiles, tsConfig);
@@ -130,9 +152,9 @@ async function run() {
       if (allDiagnostics.length) {
         console.log('TS check doesnt pass. Skip the rest');
 
-       if (isZip) {
-         await rm(pathToProject, { recursive: true });
-       }
+        if (isZip) {
+          await rm(pathToProject, { recursive: true });
+        } 
 
         process.exit(1);
       }
@@ -147,23 +169,14 @@ async function run() {
 
       console.log(`-----${name}-----`);
 
-      let write = false;
-      // console.log('type', jsonObj.script.type);
-  // console.log('jsonObj', jsonObj);
       if (file.script['#text']) {
         const messages = lint(file.script['#text'], linterConfig, scriptsNames[i]);
-        // console.log('messages', messages);
-        // TODO: check can we write even it's fixe it partialy
-        write = messages.fixed;
+        const res = generateResultXML(file, messages.output);
 
-        if (write) {
-  //      console.log('text', jsonObj.script['#text']);
-  //        console.log('res', generateResultXML(jsonObj, messages.output));
-            const res = generateResultXML(file, messages.output);
-  //          const res = scriptXML.replace(/CDATA\[[\s\S]*\]/, 'CDATA[' + messages.output + ']]');
-          console.log('lint res', messages.messages);
-          writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
-        } else if(messages.messages.length > 0) {
+        console.log('lint res', messages.messages);
+        await writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
+
+        if(messages.messages.length > 0) {
           console.log('Not fixed', messages.messages, messages.output);
         }
       } else {
@@ -174,9 +187,16 @@ async function run() {
     console.log('empty scripts', emptyScripts);
 
    if (isZip) {
-      await rm(passedPath);
+      console.log('post actions');
+
       process.chdir(pathToProject);
-      await exec(`zip -r "${passedPath}" *`);
+      console.log('zip to', '${outDir}/app.zip');
+      await exec(`zip -r "${outDir}/app.zip" *`);
+
+      console.log('remove', passedPath);
+      await rm(passToZip);
+
+      console.log('remove', pathToProject);
       await rm(pathToProject, { recursive: true });
     }
   } else {

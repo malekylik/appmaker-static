@@ -49,25 +49,27 @@ async function app(page, applicationId) {
     console.log(`exporting done`);
     console.log(`writting to ${appZipPath}`);
     await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
+    return appZipPath;
 }
-async function callAppMakerApp(applicationId, credentials) {
+async function callAppMakerApp(applicationId, credentials, options = {}) {
+    var _a;
+    const headless = (_a = options.headless) !== null && _a !== void 0 ? _a : 'chrome';
     const DEFAULT_ARGS = [
         '--disable-background-networking',
         '--disable-extensions',
         '--disable-component-extensions-with-background-pages',
     ];
-    console.log('launch');
+    console.log('launch --headless', headless);
     const browser = await puppeteer.launch({
-        // headless: false,
-        headless: 'chrome',
+        headless: headless,
         ignoreDefaultArgs: DEFAULT_ARGS,
         executablePath: '/usr/bin/google-chrome',
-        // very offten cause an error, deleting this folder solve the error
+        // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
         userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
     });
+    console.log('open page');
+    const page = await browser.newPage();
     try {
-        console.log('open page');
-        const page = await browser.newPage();
         await new Promise(res => setTimeout(res, 2000));
         console.log('newPage');
         // TODO: not always wait correctly
@@ -76,15 +78,15 @@ async function callAppMakerApp(applicationId, credentials) {
             await auth(page, credentials);
         }
         if (isAppPage(page.url())) {
-            await app(page, applicationId);
+            return await app(page, applicationId);
         }
         else {
-            console.log('unknown page');
+            throw new Error('unknown page: taking screen');
         }
-        console.log('taking screen');
-        await (0, appmaker_network_actions_1.takeScreenshoot)(page);
     }
     catch (e) {
+        console.log('error: taking screen', e);
+        await (0, appmaker_network_actions_1.takeScreenshoot)(page);
         throw e;
     }
     finally {

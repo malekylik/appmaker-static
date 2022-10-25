@@ -71,9 +71,13 @@ async function app(page: puppeteer.Page, applicationId: string) {
   console.log(`writting to ${appZipPath}`);
 
   await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
+
+  return appZipPath;
 }
 
-export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }) {
+export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
+  const headless = options.headless ?? 'chrome';
+
   const DEFAULT_ARGS: Array<string> = [
   '--disable-background-networking',
 
@@ -81,41 +85,40 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
   '--disable-component-extensions-with-background-pages',
   ];
 
-  console.log('launch');
+  console.log('launch --headless', headless);
   const browser = await puppeteer.launch({
-    // headless: false,
-    headless: 'chrome',
+    headless: headless,
     ignoreDefaultArgs: DEFAULT_ARGS,
     executablePath: '/usr/bin/google-chrome',
-    // very offten cause an error, deleting this folder solve the error
+    // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
     userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
   });
 
-  try {
   console.log('open page');
 
   const page = await browser.newPage();
 
-  await new Promise(res => setTimeout(res, 2000));
+  try {
+    await new Promise(res => setTimeout(res, 2000));
 
-  console.log('newPage');
+    console.log('newPage');
 
-  // TODO: not always wait correctly
-  await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, {waitUntil: 'networkidle2'});
+    // TODO: not always wait correctly
+    await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, {waitUntil: 'networkidle2'});
 
-  if (isAuthPage(page.url())) {
-    await auth(page, credentials);
-  } 
+    if (isAuthPage(page.url())) {
+      await auth(page, credentials);
+    }
 
-  if (isAppPage(page.url())) {
-    await app(page, applicationId);
-  } else {
-    console.log('unknown page');
-  }
-
-  console.log('taking screen');
-  await takeScreenshoot(page);
+    if (isAppPage(page.url())) {
+      return await app(page, applicationId);
+    } else {
+      throw new Error('unknown page: taking screen');
+    }
   } catch (e) {
+    console.log('error: taking screen', e);
+    await takeScreenshoot(page);
+
     throw e;
   } finally {
     console.log('closing');
