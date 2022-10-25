@@ -3,6 +3,7 @@ import * as commandLineArgs from 'command-line-args';
 
 const optionDefinitions = [
   // { name: 'appId', alias: 'v', type: Boolean },
+  { name: 'mode', type: String },
   { name: 'appId', type: String },
   // { name: 'login', type: String, multiple: true, defaultOption: true },
   { name: 'login', type: String },
@@ -12,7 +13,15 @@ const optionDefinitions = [
   // { name: 'password', type: String },
 ];
 
+export enum ApplicationMode {
+  remote = 'remote',
+  offline = 'offline',
+  interactive = 'interactive',
+}
+
 export interface CommandLineOptions {
+  mode?: ApplicationMode;
+
   appId?: string; login?: string; password?: string; outDir?: string;
   headless?: string;
 }
@@ -22,6 +31,8 @@ export interface BrowserCommandLineOptions {
 }
 
 export type RemoteMode = {
+  mode: ApplicationMode.remote;
+
   appId: string;
 
   credentials: {
@@ -33,6 +44,20 @@ export type RemoteMode = {
 
   browserOptions: BrowserCommandLineOptions;
 };
+
+export type OfflineMode = {
+  mode: ApplicationMode.offline;
+};
+
+
+export type InteractiveMode = {
+  mode: ApplicationMode.interactive;
+};
+
+export type ApplicationModeOptions =
+  RemoteMode
+  | OfflineMode
+  | InteractiveMode;
 
 function parseBrowserCommandLineArgs(options: CommandLineOptions): BrowserCommandLineOptions {
   const { headless } = options;
@@ -56,9 +81,11 @@ function parseBrowserCommandLineArgs(options: CommandLineOptions): BrowserComman
   return browserOptions;
 }
 
-export function parseCommandLineArgs(): RemoteMode {
-  const options: CommandLineOptions = commandLineArgs(optionDefinitions) as CommandLineOptions;
+function getSupportedModesAsString() {
+  return `"${ApplicationMode.remote}", "${ApplicationMode.offline}", "${ApplicationMode.interactive}"`;
+}
 
+function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandLineOptions): RemoteMode {
   const {
     appId, login, password, outDir = `${__dirname}/temp`,
   } = options;
@@ -83,6 +110,8 @@ export function parseCommandLineArgs(): RemoteMode {
   const browserOptions = parseBrowserCommandLineArgs(options);
 
   return ({
+    mode,
+
     appId,
 
     credentials,
@@ -90,5 +119,33 @@ export function parseCommandLineArgs(): RemoteMode {
     outDir,
 
     browserOptions,
+  });
+}
+
+export function parseCommandLineArgs(): ApplicationModeOptions {
+  const options: CommandLineOptions = commandLineArgs(optionDefinitions) as CommandLineOptions;
+
+  const { mode } = options;
+
+  if (!mode) {
+    console.log(`--mode is a required parameter, Please pass one of supported modes: ${getSupportedModesAsString()}`);
+
+    process.exit(1);
+  } else if (
+    mode !== ApplicationMode.interactive &&
+    mode !== ApplicationMode.offline &&
+    mode !== ApplicationMode.remote
+  ) {
+    console.log(`unknown --mode parameter: ${mode}. Please pass one of supported modes: ${getSupportedModesAsString()}`);
+
+    process.exit(1);
+  }
+
+  switch (mode) {
+    case ApplicationMode.remote: return getOptionsForRemoteMode(mode, options);
+  }
+
+  return ({
+    mode,
   });
 }
