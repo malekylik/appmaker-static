@@ -89,24 +89,19 @@ async function run() {
         else {
             console.log('No file to check for types. TS check skip');
         }
-        const emptyScripts = [];
+        const lintingReport = (0, validate_1.checkLinting)(scriptsFiles, linterConfig);
+        (0, report_1.printLintingReport)(lintingReport);
         for (let i = 0; i < scriptsFiles.length; i++) {
             const { name, file } = scriptsFiles[i];
-            console.log(`-----${name}-----`);
-            if (file.script['#text']) {
-                const messages = (0, validate_1.lint)(file.script['#text'], linterConfig, scriptsNames[i]);
-                const res = (0, generate_1.generateResultXML)(file, messages.output);
-                console.log('lint res', messages.messages);
-                await writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
-                if (messages.messages.length > 0) {
-                    console.log('Not fixed', messages.messages, messages.output);
-                }
-            }
-            else {
-                emptyScripts.push(scriptsNames[i]);
+            const report = lintingReport.find(report => report.name === name);
+            if (report) {
+                console.log('write fixed after linting file', name);
+                const res = (0, generate_1.generateResultXML)(file, report.report.output);
+                await writeFile(`${pathToProject}/scripts/${name}`, res);
             }
         }
-        console.log('empty scripts', emptyScripts);
+        const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
+        (0, report_1.printEmptyScripts)(emptyScripts);
         if (isZip) {
             console.log('post actions');
             process.chdir(pathToProject);

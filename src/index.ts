@@ -6,11 +6,11 @@ const {
 const { promisify } = require('util');
 const path = require('path');
 import { generateResultXML } from './generate';
-import { checkTypes, lint } from './validate';
+import { checkForEmptyScriptsFiles, checkLinting, checkTypes, lint } from './validate';
 import { App, initAppMakerApp, Model, View } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
-import { printTSCheckDiagnostics } from './report';
+import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
 import { parseCommandLineArgs } from './command-line';
 
 const stat = promisify(oldStat);
@@ -112,29 +112,24 @@ async function run() {
       console.log('No file to check for types. TS check skip')
     }
 
-    const emptyScripts: string[] = [];
+    const lintingReport = checkLinting(scriptsFiles, linterConfig);
+    printLintingReport(lintingReport);
 
     for (let i = 0; i < scriptsFiles.length; i++) {
       const { name, file } = scriptsFiles[i]!;
+      const report = lintingReport.find(report => report.name === name);
 
-      console.log(`-----${name}-----`);
+      if (report) {
+        console.log('write fixed after linting file', name);
 
-      if (file.script['#text']) {
-        const messages = lint(file.script['#text'], linterConfig, scriptsNames[i]);
-        const res = generateResultXML(file, messages.output);
+        const res = generateResultXML(file, report.report.output);
 
-        console.log('lint res', messages.messages);
-        await writeFile(`${pathToProject}/scripts/${scriptsNames[i]}`, res);
-
-        if(messages.messages.length > 0) {
-          console.log('Not fixed', messages.messages, messages.output);
-        }
-      } else {
-        emptyScripts.push(scriptsNames[i]!);
+        await writeFile(`${pathToProject}/scripts/${name}`, res);
       }
     }
 
-    console.log('empty scripts', emptyScripts);
+    const emptyScripts = checkForEmptyScriptsFiles(scriptsFiles);
+    printEmptyScripts(emptyScripts);
 
    if (isZip) {
       console.log('post actions');

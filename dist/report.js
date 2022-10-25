@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.printTSCheckDiagnostics = void 0;
+exports.printEmptyScripts = exports.printLintingReport = exports.printTSCheckDiagnostics = void 0;
 const ts = require("typescript");
 function printTSCheckDiagnostics(diagnostics) {
     diagnostics.forEach((diagnostic) => {
@@ -15,3 +15,17 @@ function printTSCheckDiagnostics(diagnostics) {
     });
 }
 exports.printTSCheckDiagnostics = printTSCheckDiagnostics;
+function printLintingReport(lintingReport) {
+    for (let i = 0; i < lintingReport.length; i++) {
+        const { name, report } = lintingReport[i];
+        if (report.fixed) {
+            console.log(`-----${name}-----`);
+            console.log('Not fixed', report.messages);
+        }
+    }
+}
+exports.printLintingReport = printLintingReport;
+function printEmptyScripts(emptyScripts) {
+    console.log('empty scripts', emptyScripts);
+}
+exports.printEmptyScripts = printEmptyScripts;
