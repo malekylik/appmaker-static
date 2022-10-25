@@ -1,26 +1,15 @@
-const {
-  stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile,
-  rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess,
-  constants,
-} = require('fs');
+const { stat: oldStat, rm: oldRm } = require('fs');
 const { promisify } = require('util');
 const path = require('path');
-import { generateResultXML } from './generate';
-import { checkForEmptyScriptsFiles, checkLinting, checkTypes, lint } from './validate';
-import { App, initAppMakerApp, Model, View } from './appmaker/app';
+import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
+import { App, initAppMakerApp } from './appmaker/app';
 import { callAppMakerApp } from './appmaker-network';
-import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig } from './io';
+import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
 import { parseCommandLineArgs } from './command-line';
 
 const stat = promisify(oldStat);
-const readdir = promisify(oldReaddir);
-const readFile = promisify(oldReadFile);
-const writeFile = promisify(oldWriteFile);
 const rm = promisify(oldRm);
-const mkdir = promisify(oldMkDir);
-const copyFile = promisify(oldCopyFile);
-const access = promisify(oldAccess);
 const exec = promisify(require('node:child_process').exec);
 
 // const passedPath = process.argv[2];
@@ -115,18 +104,7 @@ async function run() {
     const lintingReport = checkLinting(scriptsFiles, linterConfig);
     printLintingReport(lintingReport);
 
-    for (let i = 0; i < scriptsFiles.length; i++) {
-      const { name, file } = scriptsFiles[i]!;
-      const report = lintingReport.find(report => report.name === name);
-
-      if (report) {
-        console.log('write fixed after linting file', name);
-
-        const res = generateResultXML(file, report.report.output);
-
-        await writeFile(`${pathToProject}/scripts/${name}`, res);
-      }
-    }
+    await writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, pathToProject);
 
     const emptyScripts = checkForEmptyScriptsFiles(scriptsFiles);
     printEmptyScripts(emptyScripts);

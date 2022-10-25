@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateJSProjectForAppMaker = exports.readAppMakerViews = exports.readAppMakerSingleView = exports.readAppMakerModels = exports.readAppMakerSingleModel = exports.readAppMakerScripts = exports.readAppMakerSingleScript = exports.getViewsNames = exports.getModelsNames = exports.getScriptsNames = exports.readLinterConfig = exports.readTSConfig = exports.getPathToViews = exports.getPathToModels = exports.getPathToScrips = void 0;
+exports.writeValidatedScriptsToAppMakerXML = exports.generateJSProjectForAppMaker = exports.readAppMakerViews = exports.readAppMakerSingleView = exports.readAppMakerModels = exports.readAppMakerSingleModel = exports.readAppMakerScripts = exports.readAppMakerSingleScript = exports.getViewsNames = exports.getModelsNames = exports.getScriptsNames = exports.readLinterConfig = exports.readTSConfig = exports.getPathToViews = exports.getPathToModels = exports.getPathToScrips = void 0;
 const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
 const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
 const ts = require("typescript");
+const generate_1 = require("./generate");
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
 const access = promisify(oldAccess);
@@ -145,3 +146,17 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     return files;
 }
 exports.generateJSProjectForAppMaker = generateJSProjectForAppMaker;
+async function writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, pathToProject) {
+    const promise = [];
+    for (let i = 0; i < scriptsFiles.length; i++) {
+        const { name, file } = scriptsFiles[i];
+        const report = lintingReport.find(report => report.name === name);
+        if (report) {
+            console.log('write fixed after linting file', name);
+            const res = (0, generate_1.generateResultXML)(file, report.report.output);
+            promise.push(writeFile(`${getPathToScrips(pathToProject)}/${name}`, res));
+        }
+    }
+    return Promise.all(promise);
+}
+exports.writeValidatedScriptsToAppMakerXML = writeValidatedScriptsToAppMakerXML;

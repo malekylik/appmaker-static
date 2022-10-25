@@ -9,6 +9,8 @@ import { ModelFile, ScriptFile, ViewFile } from './appmaker';
 import { Linter } from 'eslint';
 import * as ts from 'typescript';
 import { App } from './appmaker/app';
+import { generateResultXML } from './generate';
+import { LintingReport } from './validate';
 
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
@@ -193,4 +195,25 @@ export async function generateJSProjectForAppMaker(
   await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
 
   return files;
+}
+
+export async function writeValidatedScriptsToAppMakerXML(
+  scriptsFiles: AppMakerScriptFolderContent, lintingReport: LintingReport, pathToProject: string,
+): Promise<void[]> {
+  const promise: Array<Promise<void>> = [];
+
+  for (let i = 0; i < scriptsFiles.length; i++) {
+    const { name, file } = scriptsFiles[i]!;
+    const report = lintingReport.find(report => report.name === name);
+
+    if (report) {
+      console.log('write fixed after linting file', name);
+
+      const res = generateResultXML(file, report.report.output);
+
+      promise.push(writeFile(`${getPathToScrips(pathToProject)}/${name}`, res));
+    }
+  }
+
+  return Promise.all(promise);
 }

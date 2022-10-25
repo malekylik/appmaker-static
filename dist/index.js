@@ -1,9 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
+const { stat: oldStat, rm: oldRm } = require('fs');
 const { promisify } = require('util');
 const path = require('path');
-const generate_1 = require("./generate");
 const validate_1 = require("./validate");
 const app_1 = require("./appmaker/app");
 const appmaker_network_1 = require("./appmaker-network");
@@ -11,13 +10,7 @@ const io_1 = require("./io");
 const report_1 = require("./report");
 const command_line_1 = require("./command-line");
 const stat = promisify(oldStat);
-const readdir = promisify(oldReaddir);
-const readFile = promisify(oldReadFile);
-const writeFile = promisify(oldWriteFile);
 const rm = promisify(oldRm);
-const mkdir = promisify(oldMkDir);
-const copyFile = promisify(oldCopyFile);
-const access = promisify(oldAccess);
 const exec = promisify(require('node:child_process').exec);
 // const passedPath = process.argv[2];
 //  node ./dist/index.js "/usr/local/google/home/kalinouski/Downloads/Spotlight 2.0_last.zip"
@@ -75,31 +68,23 @@ async function run() {
         if (generatedFiles.length > 0) {
             const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
             (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
-            if (allDiagnostics.length) {
-                console.log('TS check doesnt pass. Skip the rest');
-                if (isZip) {
-                    console.log('remove', passedPath);
-                    await rm(passToZip);
-                    console.log('remove', pathToProject);
-                    await rm(pathToProject, { recursive: true });
-                }
-                process.exit(1);
-            }
+            // if (allDiagnostics.length) {
+            //   console.log('TS check doesnt pass. Skip the rest');
+            //   if (isZip) {
+            //     console.log('remove', passedPath);
+            //     await rm(passToZip);
+            //     console.log('remove', pathToProject);
+            //     await rm(pathToProject, { recursive: true });
+            //   }
+            //   process.exit(1);
+            // }
         }
         else {
             console.log('No file to check for types. TS check skip');
         }
         const lintingReport = (0, validate_1.checkLinting)(scriptsFiles, linterConfig);
         (0, report_1.printLintingReport)(lintingReport);
-        for (let i = 0; i < scriptsFiles.length; i++) {
-            const { name, file } = scriptsFiles[i];
-            const report = lintingReport.find(report => report.name === name);
-            if (report) {
-                console.log('write fixed after linting file', name);
-                const res = (0, generate_1.generateResultXML)(file, report.report.output);
-                await writeFile(`${pathToProject}/scripts/${name}`, res);
-            }
-        }
+        await (0, io_1.writeValidatedScriptsToAppMakerXML)(scriptsFiles, lintingReport, pathToProject);
         const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
         (0, report_1.printEmptyScripts)(emptyScripts);
         if (isZip) {
