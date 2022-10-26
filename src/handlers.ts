@@ -1,3 +1,4 @@
+const path = require('path');
 import { OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
@@ -37,34 +38,22 @@ export async function postRemoteZipActionsHandler(pathToZip: string, pathToProje
   await rm(pathToProject, { recursive: true });
 }
 
-async function validateZipProject(passedPath: string, outDir: string): Promise<{ code: number; path: string; }> {
-  let pathToProject = passedPath;
-
-  pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
-  console.log('unzip to', pathToProject);
-  try {
-    await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
-  } catch (e) {
-    console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-    console.log(e);
-    process.exit(1);
-  }
-
+async function validateUnzipProject(passedPath: string, outDir: string): Promise<{ code: number }> {
   const [linterConfig, tsConfig] = await Promise.all([
     readLinterConfig(),
     readTSConfig(),
   ]);
 
   const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
-    getScriptsNames(pathToProject),
-    getModelsNames(pathToProject),
-    getViewsNames(pathToProject),
+    getScriptsNames(passedPath),
+    getModelsNames(passedPath),
+    getViewsNames(passedPath),
   ]);
 
   const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
-    readAppMakerScripts(pathToProject, scriptsNames),
-    readAppMakerModels(pathToProject, modelsNames),
-    readAppMakerViews(pathToProject, viewsNames),
+    readAppMakerScripts(passedPath, scriptsNames),
+    readAppMakerModels(passedPath, modelsNames),
+    readAppMakerViews(passedPath, viewsNames),
   ]);
 
   const app = new App();
@@ -83,7 +72,7 @@ async function validateZipProject(passedPath: string, outDir: string): Promise<{
     if (allDiagnostics.length) {
       console.log('TS check doesnt pass. Skip the rest');
 
-      return { code: 1, path: pathToProject };
+      return { code: 1 };
     }
   } else {
     console.log('No file to check for types. TS check skip')
@@ -92,18 +81,61 @@ async function validateZipProject(passedPath: string, outDir: string): Promise<{
   const lintingReport = checkLinting(scriptsFiles, linterConfig);
   printLintingReport(lintingReport);
 
-  await writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, pathToProject);
+  await writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, passedPath);
 
   const emptyScripts = checkForEmptyScriptsFiles(scriptsFiles);
   printEmptyScripts(emptyScripts);
 
-  return { code: 1, path: pathToProject };
+  return { code: 1 };
+}
+
+async function validateZipProject(passedPath: string, outDir: string): Promise<{ code: number; path: string; }> {
+  let pathToProject = passedPath;
+
+  pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
+  console.log('unzip to', pathToProject);
+  try {
+    await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
+  } catch (e) {
+    console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+    console.log(e);
+    process.exit(1);
+  }
+
+  const result = await validateUnzipProject(pathToProject, outDir);
+
+  return ({
+    ...result,
+    path: pathToProject,
+  });
 }
 
 export async function handleOfflineApplicationMode(options: OfflineMode): Promise<void> {
-  const result = await validateZipProject(options.project, options.outDir);
+  let pathStat = null;
 
-  await postOfflineZipActionsHandler(result.path, options.outDir);
+  try {
+    pathStat = await stat(options.project);
+  } catch {
+    console.log(`Couldn't find path: ${options.project}`);
+    process.exit(1);
+  }
+
+  const isZip = path.extname(options.project) === '.zip';
+
+  if (!pathStat.isDirectory() && !isZip) {
+    console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+    process.exit(1);
+  }
+
+  let result = null;
+
+  if (isZip) {
+    result = await validateZipProject(options.project, options.outDir);
+
+    await postOfflineZipActionsHandler(result.path, options.outDir);
+  } else {
+    result = await validateUnzipProject(options.project, options.outDir);
+  }
 
   if (result.code !== 0) {
     process.exit(result.code);

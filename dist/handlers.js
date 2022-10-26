@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleRemoteApplicationMode = exports.handleOfflineApplicationMode = exports.postRemoteZipActionsHandler = exports.postOfflineZipActionsHandler = void 0;
+const path = require('path');
 const validate_1 = require("./validate");
 const app_1 = require("./appmaker/app");
 const appmaker_network_1 = require("./appmaker-network");
@@ -31,6 +32,43 @@ async function postRemoteZipActionsHandler(pathToZip, pathToProject, outDir) {
     await rm(pathToProject, { recursive: true });
 }
 exports.postRemoteZipActionsHandler = postRemoteZipActionsHandler;
+async function validateUnzipProject(passedPath, outDir) {
+    const [linterConfig, tsConfig] = await Promise.all([
+        (0, io_1.readLinterConfig)(),
+        (0, io_1.readTSConfig)(),
+    ]);
+    const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
+        (0, io_1.getScriptsNames)(passedPath),
+        (0, io_1.getModelsNames)(passedPath),
+        (0, io_1.getViewsNames)(passedPath),
+    ]);
+    const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
+        (0, io_1.readAppMakerScripts)(passedPath, scriptsNames),
+        (0, io_1.readAppMakerModels)(passedPath, modelsNames),
+        (0, io_1.readAppMakerViews)(passedPath, viewsNames),
+    ]);
+    const app = new app_1.App();
+    (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles);
+    const pathToGenerateJSProjectDir = outDir;
+    const generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
+    if (generatedFiles.length > 0) {
+        const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
+        (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
+        if (allDiagnostics.length) {
+            console.log('TS check doesnt pass. Skip the rest');
+            return { code: 1 };
+        }
+    }
+    else {
+        console.log('No file to check for types. TS check skip');
+    }
+    const lintingReport = (0, validate_1.checkLinting)(scriptsFiles, linterConfig);
+    (0, report_1.printLintingReport)(lintingReport);
+    await (0, io_1.writeValidatedScriptsToAppMakerXML)(scriptsFiles, lintingReport, passedPath);
+    const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
+    (0, report_1.printEmptyScripts)(emptyScripts);
+    return { code: 1 };
+}
 async function validateZipProject(passedPath, outDir) {
     let pathToProject = passedPath;
     pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
@@ -43,45 +81,34 @@ async function validateZipProject(passedPath, outDir) {
         console.log(e);
         process.exit(1);
     }
-    const [linterConfig, tsConfig] = await Promise.all([
-        (0, io_1.readLinterConfig)(),
-        (0, io_1.readTSConfig)(),
-    ]);
-    const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
-        (0, io_1.getScriptsNames)(pathToProject),
-        (0, io_1.getModelsNames)(pathToProject),
-        (0, io_1.getViewsNames)(pathToProject),
-    ]);
-    const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
-        (0, io_1.readAppMakerScripts)(pathToProject, scriptsNames),
-        (0, io_1.readAppMakerModels)(pathToProject, modelsNames),
-        (0, io_1.readAppMakerViews)(pathToProject, viewsNames),
-    ]);
-    const app = new app_1.App();
-    (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles);
-    const pathToGenerateJSProjectDir = outDir;
-    const generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
-    if (generatedFiles.length > 0) {
-        const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
-        (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
-        if (allDiagnostics.length) {
-            console.log('TS check doesnt pass. Skip the rest');
-            return { code: 1, path: pathToProject };
-        }
-    }
-    else {
-        console.log('No file to check for types. TS check skip');
-    }
-    const lintingReport = (0, validate_1.checkLinting)(scriptsFiles, linterConfig);
-    (0, report_1.printLintingReport)(lintingReport);
-    await (0, io_1.writeValidatedScriptsToAppMakerXML)(scriptsFiles, lintingReport, pathToProject);
-    const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
-    (0, report_1.printEmptyScripts)(emptyScripts);
-    return { code: 1, path: pathToProject };
+    const result = await validateUnzipProject(pathToProject, outDir);
+    return ({
+        ...result,
+        path: pathToProject,
+    });
 }
 async function handleOfflineApplicationMode(options) {
-    const result = await validateZipProject(options.project, options.outDir);
-    await postOfflineZipActionsHandler(result.path, options.outDir);
+    let pathStat = null;
+    try {
+        pathStat = await stat(options.project);
+    }
+    catch {
+        console.log(`Couldn't find path: ${options.project}`);
+        process.exit(1);
+    }
+    const isZip = path.extname(options.project) === '.zip';
+    if (!pathStat.isDirectory() && !isZip) {
+        console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+        process.exit(1);
+    }
+    let result = null;
+    if (isZip) {
+        result = await validateZipProject(options.project, options.outDir);
+        await postOfflineZipActionsHandler(result.path, options.outDir);
+    }
+    else {
+        result = await validateUnzipProject(options.project, options.outDir);
+    }
     if (result.code !== 0) {
         process.exit(result.code);
     }
