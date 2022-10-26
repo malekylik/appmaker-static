@@ -159,7 +159,7 @@ export async function readAppMakerViews(pathToProject: string, modelsNames: Arra
 }
 
 export async function generateJSProjectForAppMaker(
-  pathToProject: string, scriptsFiles: AppMakerScriptFolderContent, tsConfig: TSConfig, app: App
+  pathToProject: string, scriptsFiles: AppMakerScriptFolderContent, tsConfig: TSConfig, eslintConfig: Linter.Config<Linter.RulesRecord>, app: App
 ) {
   try {
     await access(pathToProject, constants.F_OK);
@@ -187,7 +187,8 @@ export async function generateJSProjectForAppMaker(
   const pathToTypes = `${pathToProject}/type`;
   const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
   const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
-  writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+  await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+  await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
 
   await mkdir(pathToTypes);
 

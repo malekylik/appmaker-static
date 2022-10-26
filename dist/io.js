@@ -118,7 +118,7 @@ async function readAppMakerViews(pathToProject, modelsNames) {
     return viewFiles;
 }
 exports.readAppMakerViews = readAppMakerViews;
-async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfig, app) {
+async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfig, eslintConfig, app) {
     try {
         await access(pathToProject, constants.F_OK);
         await rm(pathToProject, { recursive: true });
@@ -139,7 +139,8 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     const pathToTypes = `${pathToProject}/type`;
     const files = tsFilesToCheck.concat([`${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`]);
     const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
-    writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+    await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+    await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
     await mkdir(pathToTypes);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
     await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());

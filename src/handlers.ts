@@ -74,7 +74,7 @@ export async function handleRemoteApplicationMode(options: RemoteMode): Promise<
 
   const pathToGenerateJSProjectDir = options.outDir;
 
-  const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, app);
+  const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
 
   if (generatedFiles.length > 0) {
     const allDiagnostics = checkTypes(generatedFiles, tsConfig);
