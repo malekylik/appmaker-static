@@ -10,7 +10,8 @@ const optionDefinitions = [
     { name: 'login', type: String },
     { name: 'password', type: String },
     { name: 'outDir', type: String },
-    { name: 'headless', type: String }
+    { name: 'headless', type: String },
+    { name: 'project', type: String }
     // { name: 'password', type: String },
 ];
 var ApplicationMode;
@@ -68,6 +69,18 @@ function getOptionsForRemoteMode(mode, options) {
         browserOptions,
     });
 }
+function getOptionsForOfflineMode(mode, options) {
+    const { project, outDir = `${__dirname}/temp`, } = options;
+    if (!project) {
+        console.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
+        process.exit(1);
+    }
+    return ({
+        mode,
+        project,
+        outDir,
+    });
+}
 function parseCommandLineArgs() {
     const options = commandLineArgs(optionDefinitions);
     const { mode } = options;
@@ -83,6 +96,7 @@ function parseCommandLineArgs() {
     }
     switch (mode) {
         case ApplicationMode.remote: return getOptionsForRemoteMode(mode, options);
+        case ApplicationMode.offline: return getOptionsForOfflineMode(mode, options);
     }
     return ({
         mode,

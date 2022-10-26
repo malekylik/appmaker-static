@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleRemoteApplicationMode = exports.postZipActionsHandler = void 0;
+exports.handleRemoteApplicationMode = exports.handleOfflineApplicationMode = exports.postRemoteZipActionsHandler = exports.postOfflineZipActionsHandler = void 0;
 const validate_1 = require("./validate");
 const app_1 = require("./appmaker/app");
 const appmaker_network_1 = require("./appmaker-network");
@@ -11,7 +11,16 @@ const { promisify } = require('util');
 const rm = promisify(oldRm);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
-async function postZipActionsHandler(pathToZip, pathToProject, outDir) {
+async function postOfflineZipActionsHandler(pathToProject, outDir) {
+    console.log('post actions');
+    process.chdir(pathToProject);
+    console.log('zip to', `${outDir}/app.zip`);
+    await exec(`zip -r "${outDir}/app.zip" *`);
+    console.log('remove', pathToProject);
+    await rm(pathToProject, { recursive: true });
+}
+exports.postOfflineZipActionsHandler = postOfflineZipActionsHandler;
+async function postRemoteZipActionsHandler(pathToZip, pathToProject, outDir) {
     console.log('post actions');
     process.chdir(pathToProject);
     console.log('zip to', `${outDir}/app.zip`);
@@ -21,18 +30,8 @@ async function postZipActionsHandler(pathToZip, pathToProject, outDir) {
     console.log('remove', pathToProject);
     await rm(pathToProject, { recursive: true });
 }
-exports.postZipActionsHandler = postZipActionsHandler;
-async function handleRemoteApplicationMode(options) {
-    let passedPath = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions);
-    let pathStat = null;
-    try {
-        pathStat = await stat(passedPath);
-    }
-    catch {
-        console.log(`Couldn't find path: ${passedPath}`);
-        process.exit(1);
-    }
-    let pathToZip = passedPath;
+exports.postRemoteZipActionsHandler = postRemoteZipActionsHandler;
+async function validateZipProject(passedPath, outDir) {
     let pathToProject = passedPath;
     pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
     console.log('unzip to', pathToProject);
@@ -60,15 +59,14 @@ async function handleRemoteApplicationMode(options) {
     ]);
     const app = new app_1.App();
     (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles);
-    const pathToGenerateJSProjectDir = options.outDir;
+    const pathToGenerateJSProjectDir = outDir;
     const generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
     if (generatedFiles.length > 0) {
         const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
         (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
         if (allDiagnostics.length) {
             console.log('TS check doesnt pass. Skip the rest');
-            await postZipActionsHandler(pathToZip, pathToProject, options.outDir);
-            process.exit(1);
+            return { code: 1, path: pathToProject };
         }
     }
     else {
@@ -79,6 +77,22 @@ async function handleRemoteApplicationMode(options) {
     await (0, io_1.writeValidatedScriptsToAppMakerXML)(scriptsFiles, lintingReport, pathToProject);
     const emptyScripts = (0, validate_1.checkForEmptyScriptsFiles)(scriptsFiles);
     (0, report_1.printEmptyScripts)(emptyScripts);
-    await postZipActionsHandler(pathToZip, pathToProject, options.outDir);
+    return { code: 1, path: pathToProject };
+}
+async function handleOfflineApplicationMode(options) {
+    const result = await validateZipProject(options.project, options.outDir);
+    await postOfflineZipActionsHandler(result.path, options.outDir);
+    if (result.code !== 0) {
+        process.exit(result.code);
+    }
+}
+exports.handleOfflineApplicationMode = handleOfflineApplicationMode;
+async function handleRemoteApplicationMode(options) {
+    const passedPath = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions);
+    const result = await validateZipProject(passedPath, options.outDir);
+    await postRemoteZipActionsHandler(passedPath, result.path, options.outDir);
+    if (result.code !== 0) {
+        process.exit(result.code);
+    }
 }
 exports.handleRemoteApplicationMode = handleRemoteApplicationMode;

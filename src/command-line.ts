@@ -9,7 +9,8 @@ const optionDefinitions = [
   { name: 'login', type: String },
   { name: 'password', type: String },
   { name: 'outDir', type: String },
-  { name: 'headless', type: String }
+  { name: 'headless', type: String },
+  { name: 'project', type: String }
   // { name: 'password', type: String },
 ];
 
@@ -23,6 +24,8 @@ export interface CommandLineOptions {
   mode?: ApplicationMode;
 
   appId?: string; login?: string; password?: string; outDir?: string;
+  project?: string;
+
   headless?: string;
 }
 
@@ -47,8 +50,10 @@ export type RemoteMode = {
 
 export type OfflineMode = {
   mode: ApplicationMode.offline;
-};
 
+  project: string;
+  outDir: string;
+};
 
 export type InteractiveMode = {
   mode: ApplicationMode.interactive;
@@ -122,6 +127,25 @@ function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandL
   });
 }
 
+function getOptionsForOfflineMode(mode: ApplicationMode.offline, options: CommandLineOptions): OfflineMode {
+  const {
+    project, outDir = `${__dirname}/temp`,
+  } = options;
+
+  if (!project) {
+    console.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
+
+    process.exit(1);
+  }
+
+  return ({
+    mode,
+
+    project,
+    outDir,
+  });
+}
+
 export function parseCommandLineArgs(): ApplicationModeOptions {
   const options: CommandLineOptions = commandLineArgs(optionDefinitions) as CommandLineOptions;
 
@@ -143,6 +167,7 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
 
   switch (mode) {
     case ApplicationMode.remote: return getOptionsForRemoteMode(mode, options);
+    case ApplicationMode.offline: return getOptionsForOfflineMode(mode, options);
   }
 
   return ({
