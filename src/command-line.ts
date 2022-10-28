@@ -66,6 +66,8 @@ export type InteractiveMode = {
   };
 
   browserOptions: BrowserCommandLineOptions;
+
+  outDir: string;
 };
 
 export type ApplicationModeOptions =
@@ -157,17 +159,23 @@ function getOptionsForOfflineMode(mode: ApplicationMode.offline, options: Comman
 
 function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options: CommandLineOptions): InteractiveMode {
   const {
-    appId, login, password
+    appId, login, password, outDir
   } = options;
 
   if (appId) {
     if (login === undefined || password === undefined) {
-      console.log('For using script in remote mode please pass login and password');
+      console.log('For using script in interactive mode please pass login and password');
+
+      process.exit(1);
+    }
+
+    if (outDir === undefined) {
+      console.log('For using script in interactive mode please pass outDir, it`s used as working directory');
 
       process.exit(1);
     }
   } else {
-    console.log('For using script in remote mode please pass app id');
+    console.log('For using script in interactive mode please pass app id');
 
     process.exit(1);
   }
@@ -187,6 +195,8 @@ function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options
     credentials,
 
     browserOptions,
+
+    outDir,
   });
 }
 

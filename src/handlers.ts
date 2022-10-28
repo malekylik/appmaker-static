@@ -173,6 +173,11 @@ async function saveCallToBrowser<T>(browser: puppeteer.Browser, callback: (brows
   return null;
 }
 
+enum InteractiveModeCommands {
+  close = 'close',
+  printWorkingDirectory = 'pwd',
+}
+
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
   console.log('interactive');
 
@@ -224,13 +229,15 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
     let command = data.toString();
     command = command.slice(0, command.length - 1)
 
-    if (command === 'close') {
+    if (command === InteractiveModeCommands.close) {
       stdin.removeListener('data', callback);
 
       await browser.close();
       console.log('browser closed');
       stdin.end();
       process.exit(0);
+    } else if (command === InteractiveModeCommands.printWorkingDirectory) {
+      console.log(options.outDir);
     } else {
       console.log('unknown command', command);
     }

@@ -138,6 +138,11 @@ async function saveCallToBrowser(browser, callback) {
     }
     return null;
 }
+var InteractiveModeCommands;
+(function (InteractiveModeCommands) {
+    InteractiveModeCommands["close"] = "close";
+    InteractiveModeCommands["printWorkingDirectory"] = "pwd";
+})(InteractiveModeCommands || (InteractiveModeCommands = {}));
 async function handleInteractiveApplicationMode(options) {
     console.log('interactive');
     let browser = await (0, appmaker_network_1.openBrowser)();
@@ -176,12 +181,15 @@ async function handleInteractiveApplicationMode(options) {
     async function callback(data) {
         let command = data.toString();
         command = command.slice(0, command.length - 1);
-        if (command === 'close') {
+        if (command === InteractiveModeCommands.close) {
             node_process_1.stdin.removeListener('data', callback);
             await browser.close();
             console.log('browser closed');
             node_process_1.stdin.end();
             process.exit(0);
+        }
+        else if (command === InteractiveModeCommands.printWorkingDirectory) {
+            console.log(options.outDir);
         }
         else {
             console.log('unknown command', command);
