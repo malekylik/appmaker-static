@@ -6,7 +6,7 @@ import { App, initAppMakerApp } from './appmaker/app';
 import { auth, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
-import { takeScreenshoot } from './appmaker-network-actions';
+import { getCommandNumberFromApp, takeScreenshoot } from './appmaker-network-actions';
 import { stdin } from 'node:process';
 
 const { stat: oldStat, rm: oldRm } = require('fs');
@@ -176,6 +176,7 @@ async function saveCallToBrowser<T>(browser: puppeteer.Browser, callback: (brows
 enum InteractiveModeCommands {
   close = 'close',
   printWorkingDirectory = 'pwd',
+  printCommandNumber = 'pcn',
 }
 
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
@@ -184,6 +185,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
   let browser = await openBrowser();
 
   let page = null;
+  let commandNumber = '';
 
   try {
     console.log('open page');
@@ -211,6 +213,8 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
     }
 
     if (isAppPage(page.url())) {
+      commandNumber = await getCommandNumberFromApp(page);
+      console.log('current command', commandNumber);
       console.log('successfuly loged in, please type command');
     } else {
       throw new Error('unknown page: taking screen');
@@ -238,6 +242,8 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       process.exit(0);
     } else if (command === InteractiveModeCommands.printWorkingDirectory) {
       console.log(options.outDir);
+    } else if (command === InteractiveModeCommands.printCommandNumber) {
+      console.log(commandNumber);
     } else {
       console.log('unknown command', command);
     }

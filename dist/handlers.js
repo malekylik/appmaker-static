@@ -142,11 +142,13 @@ var InteractiveModeCommands;
 (function (InteractiveModeCommands) {
     InteractiveModeCommands["close"] = "close";
     InteractiveModeCommands["printWorkingDirectory"] = "pwd";
+    InteractiveModeCommands["printCommandNumber"] = "pcn";
 })(InteractiveModeCommands || (InteractiveModeCommands = {}));
 async function handleInteractiveApplicationMode(options) {
     console.log('interactive');
     let browser = await (0, appmaker_network_1.openBrowser)();
     let page = null;
+    let commandNumber = '';
     try {
         console.log('open page');
         page = await browser.newPage();
@@ -166,6 +168,8 @@ async function handleInteractiveApplicationMode(options) {
             await (0, appmaker_network_1.auth)(page, options.credentials);
         }
         if ((0, appmaker_network_1.isAppPage)(page.url())) {
+            commandNumber = await (0, appmaker_network_actions_1.getCommandNumberFromApp)(page);
+            console.log('current command', commandNumber);
             console.log('successfuly loged in, please type command');
         }
         else {
@@ -190,6 +194,9 @@ async function handleInteractiveApplicationMode(options) {
         }
         else if (command === InteractiveModeCommands.printWorkingDirectory) {
             console.log(options.outDir);
+        }
+        else if (command === InteractiveModeCommands.printCommandNumber) {
+            console.log(commandNumber);
         }
         else {
             console.log('unknown command', command);

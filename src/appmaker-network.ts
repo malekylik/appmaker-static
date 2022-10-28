@@ -4,7 +4,7 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
-import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, executeCommand, getContent } from './appmaker-network-actions';
+import { getXSRFToken, exportProject, takeScreenshoot } from './appmaker-network-actions';
 
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';

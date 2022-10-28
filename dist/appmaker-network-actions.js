@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.executeCommand = exports.getContent = exports.getCommandNumberFromApp = exports.getXSRFToken = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.getCommandNumberFromApp = exports.getXSRFToken = void 0;
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
@@ -66,26 +66,7 @@ var CommnadId;
 (function (CommnadId) {
     CommnadId[CommnadId["paste"] = 22] = "paste";
 })(CommnadId || (CommnadId = {}));
-function getContent(xsrfToken, commandNumber, prevContent, content) {
-    const body = {
-        "1": "kalinouski@google.com:1685428865:1666365626171",
-        "2": { "22": { "1": { "1": "RdeRXXpJpD", "2": { "1": "2SsjnooHxpqnNkwjwsUbrdUD8FVHIMEa" } },
-                "2": { "1": content.length, "2": prevContent.length, "3": [{ "1": prevContent.length, "2": { "1": prevContent }, "3": 3 }, { "1": content.length, "2": { "1": content }, "3": 2 }] }, "3": "0" } },
-        "3": commandNumber
-    };
-    console.log('prevContent', prevContent, prevContent.length);
-    const payload = {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/jspblite2',
-            'x-framework-xsrf-token': xsrfToken, // 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2MzQ5MDI5NTky' 
-        },
-        body: JSON.stringify(body),
-    };
-    console.log(payload);
-}
-exports.getContent = getContent;
-async function executeCommand(page, xsrfToken, login, fileKey, commandNumber, prevContent, content) {
+async function changeScriptFile(page, xsrfToken, login, fileKey, commandNumber, prevContent, content) {
     const res = await page.evaluate((xsrfToken, login, commandNumber, prevContent, content) => {
         const body = {
             "1": `${login}:1685428865:1666365626171`,
@@ -145,7 +126,7 @@ async function executeCommand(page, xsrfToken, login, fileKey, commandNumber, pr
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }
-exports.executeCommand = executeCommand;
+exports.changeScriptFile = changeScriptFile;
 function exportProject(applicationId, xsrfToken) {
     return fetch('https://appmaker.googleplex.com/_am/exportApp', {
         method: 'POST',

@@ -76,29 +76,7 @@ enum CommnadId {
   paste = 22,
 }
 
-export function getContent(xsrfToken: string, commandNumber: string, prevContent: string, content: string) {
-  const body = {
-    "1": "kalinouski@google.com:1685428865:1666365626171",
-    "2": { "22": { "1": { "1":"RdeRXXpJpD", "2": { "1":"2SsjnooHxpqnNkwjwsUbrdUD8FVHIMEa" } },
-    "2": { "1": content.length, "2": prevContent.length, "3":[{ "1":prevContent.length, "2": {"1":prevContent}, "3":3}, { "1":content.length, "2":{ "1":content }, "3":2}]}, "3":"0" } },
-    "3": commandNumber
-    };
-
-    console.log('prevContent', prevContent, prevContent.length);
-
-  const payload = {
-    method: 'POST',
-     headers: {
-      'content-type': 'application/jspblite2',
-      'x-framework-xsrf-token': xsrfToken, // 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2MzQ5MDI5NTky' 
-    },
-     body: JSON.stringify(body),
-  };
-
-  console.log(payload);
-}
-
-export async function executeCommand(page: puppeteer.Page, xsrfToken: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string) {
+export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string) {
   const res = await page.evaluate((xsrfToken, login, commandNumber, prevContent, content) => {
     const body = {
       "1": `${login}:1685428865:1666365626171`, // dont know numbers
