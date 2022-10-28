@@ -9,15 +9,35 @@ import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, 
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
 
-function isAuthPage(url: string): boolean {
+export async function openBrowser(options: { headless?: boolean | 'chrome' } = {}): Promise<puppeteer.Browser> {
+  const headless = options.headless ?? 'chrome';
+
+  const DEFAULT_ARGS: Array<string> = [
+  '--disable-background-networking',
+
+  '--disable-extensions',
+  '--disable-component-extensions-with-background-pages',
+  ];
+
+  console.log('launch --headless', headless);
+  return await puppeteer.launch({
+    headless: headless,
+    ignoreDefaultArgs: DEFAULT_ARGS,
+    executablePath: '/usr/bin/google-chrome',
+    // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
+    userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
+  });
+}
+
+export function isAuthPage(url: string): boolean {
   return url.includes(authPageUrl);
 }
 
-function isAppPage(url: string): boolean {
+export function isAppPage(url: string): boolean {
   return url.includes(editAppMakerPageUrl);
 }
 
-async function auth(page: puppeteer.Page, credentials: { login: string; password: string; }) {
+export async function auth(page: puppeteer.Page, credentials: { login: string; password: string; }) {
   console.log('auth routine');
 
   console.log('fill credits');
@@ -76,23 +96,7 @@ async function app(page: puppeteer.Page, applicationId: string) {
 }
 
 export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
-  const headless = options.headless ?? 'chrome';
-
-  const DEFAULT_ARGS: Array<string> = [
-  '--disable-background-networking',
-
-  '--disable-extensions',
-  '--disable-component-extensions-with-background-pages',
-  ];
-
-  console.log('launch --headless', headless);
-  const browser = await puppeteer.launch({
-    headless: headless,
-    ignoreDefaultArgs: DEFAULT_ARGS,
-    executablePath: '/usr/bin/google-chrome',
-    // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
-    userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
-  });
+  const browser = await openBrowser();
 
   let page = null;
 

@@ -11,8 +11,11 @@ async function run() {
     if (options.mode === command_line_1.ApplicationMode.offline) {
         await (0, handlers_1.handleOfflineApplicationMode)(options);
     }
+    if (options.mode === command_line_1.ApplicationMode.interactive) {
+        await (0, handlers_1.handleInteractiveApplicationMode)(options);
+    }
     else {
-        console.log(`Unsupported modes: "${command_line_1.ApplicationMode.interactive}"`);
+        console.log(`Unsupported modes: "${options.mode}"`);
     }
 }
 run();

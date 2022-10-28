@@ -1,5 +1,5 @@
 import { ApplicationMode, parseCommandLineArgs } from './command-line';
-import { handleOfflineApplicationMode, handleRemoteApplicationMode } from './handlers';
+import { handleInteractiveApplicationMode, handleOfflineApplicationMode, handleRemoteApplicationMode } from './handlers';
 
 async function run() {
   const options = parseCommandLineArgs();
@@ -10,8 +10,10 @@ async function run() {
     await handleRemoteApplicationMode(options);
   } if (options.mode === ApplicationMode.offline) {
     await handleOfflineApplicationMode(options);
+  } if (options.mode === ApplicationMode.interactive) {
+    await handleInteractiveApplicationMode(options);
   } else {
-    console.log(`Unsupported modes: "${ApplicationMode.interactive}"`);
+    console.log(`Unsupported modes: "${options.mode}"`);
   }
 }
 

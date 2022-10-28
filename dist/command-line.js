@@ -81,6 +81,30 @@ function getOptionsForOfflineMode(mode, options) {
         outDir,
     });
 }
+function getOptionsForInteractiveMode(mode, options) {
+    const { appId, login, password } = options;
+    if (appId) {
+        if (login === undefined || password === undefined) {
+            console.log('For using script in remote mode please pass login and password');
+            process.exit(1);
+        }
+    }
+    else {
+        console.log('For using script in remote mode please pass app id');
+        process.exit(1);
+    }
+    const credentials = {
+        login: login,
+        password: password,
+    };
+    const browserOptions = parseBrowserCommandLineArgs(options);
+    return ({
+        mode,
+        appId,
+        credentials,
+        browserOptions,
+    });
+}
 function parseCommandLineArgs() {
     const options = commandLineArgs(optionDefinitions);
     const { mode } = options;
@@ -97,7 +121,9 @@ function parseCommandLineArgs() {
     switch (mode) {
         case ApplicationMode.remote: return getOptionsForRemoteMode(mode, options);
         case ApplicationMode.offline: return getOptionsForOfflineMode(mode, options);
+        case ApplicationMode.interactive: return getOptionsForInteractiveMode(mode, options);
     }
+    // @ts-ignore: Unreachable code error
     return ({
         mode,
     });

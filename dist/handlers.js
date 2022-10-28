@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleRemoteApplicationMode = exports.handleOfflineApplicationMode = exports.postRemoteZipActionsHandler = exports.postOfflineZipActionsHandler = void 0;
+exports.handleInteractiveApplicationMode = exports.handleRemoteApplicationMode = exports.handleOfflineApplicationMode = exports.postRemoteZipActionsHandler = exports.postOfflineZipActionsHandler = void 0;
 const path = require('path');
 const validate_1 = require("./validate");
 const app_1 = require("./appmaker/app");
 const appmaker_network_1 = require("./appmaker-network");
 const io_1 = require("./io");
 const report_1 = require("./report");
+const appmaker_network_actions_1 = require("./appmaker-network-actions");
+const node_process_1 = require("node:process");
 const { stat: oldStat, rm: oldRm } = require('fs');
 const { promisify } = require('util');
 const rm = promisify(oldRm);
@@ -123,3 +125,68 @@ async function handleRemoteApplicationMode(options) {
     }
 }
 exports.handleRemoteApplicationMode = handleRemoteApplicationMode;
+async function saveCallToBrowser(browser, callback) {
+    try {
+        const res = callback(browser);
+        if (res instanceof Promise) {
+            return await res;
+        }
+        return res;
+    }
+    catch (e) {
+        console.log('fail to run command', e);
+    }
+    return null;
+}
+async function handleInteractiveApplicationMode(options) {
+    console.log('interactive');
+    let browser = await (0, appmaker_network_1.openBrowser)();
+    let page = null;
+    try {
+        console.log('open page');
+        page = await browser.newPage();
+    }
+    catch (e) {
+        console.log('error: cant open page', e);
+        console.log('closing');
+        await browser.close();
+        throw e;
+    }
+    try {
+        await new Promise(res => setTimeout(res, 2000));
+        console.log('newPage');
+        // TODO: not always wait correctly
+        await page.goto(`https://appmaker.googleplex.com/edit/${options.appId}`, { waitUntil: 'networkidle2' });
+        if ((0, appmaker_network_1.isAuthPage)(page.url())) {
+            await (0, appmaker_network_1.auth)(page, options.credentials);
+        }
+        if ((0, appmaker_network_1.isAppPage)(page.url())) {
+            console.log('successfuly loged in, please type command');
+        }
+        else {
+            throw new Error('unknown page: taking screen');
+        }
+    }
+    catch (e) {
+        console.log('error: taking screen', e);
+        await (0, appmaker_network_actions_1.takeScreenshoot)(page);
+        await browser.close();
+        throw e;
+    }
+    async function callback(data) {
+        let command = data.toString();
+        command = command.slice(0, command.length - 1);
+        if (command === 'close') {
+            node_process_1.stdin.removeListener('data', callback);
+            await browser.close();
+            console.log('browser closed');
+            node_process_1.stdin.end();
+            process.exit(0);
+        }
+        else {
+            console.log('unknown command', command);
+        }
+    }
+    node_process_1.stdin.on('data', callback);
+}
+exports.handleInteractiveApplicationMode = handleInteractiveApplicationMode;

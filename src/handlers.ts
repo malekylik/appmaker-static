@@ -1,10 +1,13 @@
 const path = require('path');
-import { OfflineMode, RemoteMode } from './command-line';
+import * as puppeteer from 'puppeteer';
+import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
-import { callAppMakerApp } from './appmaker-network';
+import { auth, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
+import { takeScreenshoot } from './appmaker-network-actions';
+import { stdin } from 'node:process';
 
 const { stat: oldStat, rm: oldRm } = require('fs');
 const { promisify } = require('util');
@@ -152,4 +155,86 @@ export async function handleRemoteApplicationMode(options: RemoteMode): Promise<
   if (result.code !== 0) {
     process.exit(result.code);
   }
+}
+
+async function saveCallToBrowser<T>(browser: puppeteer.Browser, callback: (browser: puppeteer.Browser) => T): Promise<T | null> {
+  try {
+    const res = callback(browser);
+
+    if (res instanceof Promise) {
+      return await res;
+    }
+
+    return res;
+  } catch (e) {
+    console.log('fail to run command', e);
+  }
+
+  return null;
+}
+
+export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
+  console.log('interactive');
+
+  let browser = await openBrowser();
+
+  let page = null;
+
+  try {
+    console.log('open page');
+
+    page = await browser.newPage()
+  } catch (e) {
+    console.log('error: cant open page', e);
+
+    console.log('closing');
+    await browser.close();
+
+    throw e;
+  }
+
+  try {
+    await new Promise(res => setTimeout(res, 2000));
+
+    console.log('newPage');
+
+    // TODO: not always wait correctly
+    await page.goto(`https://appmaker.googleplex.com/edit/${options.appId}`, {waitUntil: 'networkidle2'});
+
+    if (isAuthPage(page.url())) {
+      await auth(page, options.credentials);
+    }
+
+    if (isAppPage(page.url())) {
+      console.log('successfuly loged in, please type command');
+    } else {
+      throw new Error('unknown page: taking screen');
+    }
+
+  } catch (e) {
+    console.log('error: taking screen', e);
+    await takeScreenshoot(page);
+
+    await browser.close();
+
+    throw e;
+  }
+
+  async function callback(data: Buffer) {
+    let command = data.toString();
+    command = command.slice(0, command.length - 1)
+
+    if (command === 'close') {
+      stdin.removeListener('data', callback);
+
+      await browser.close();
+      console.log('browser closed');
+      stdin.end();
+      process.exit(0);
+    } else {
+      console.log('unknown command', command);
+    }
+  }
+
+  stdin.on('data', callback);
 }
