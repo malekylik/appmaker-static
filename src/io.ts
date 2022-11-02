@@ -1,5 +1,5 @@
 const {
-  stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile,
+  readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile,
   rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess,
   constants,
 } = require('fs');

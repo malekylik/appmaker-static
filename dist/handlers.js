@@ -9,11 +9,12 @@ const io_1 = require("./io");
 const report_1 = require("./report");
 const appmaker_network_actions_1 = require("./appmaker-network-actions");
 const node_process_1 = require("node:process");
-const { stat: oldStat, rm: oldRm } = require('fs');
+const { stat: oldStat, rm: oldRm, readdir: oldReaddir } = require('fs');
 const { promisify } = require('util');
 const rm = promisify(oldRm);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
+const readdir = promisify(oldReaddir);
 async function postOfflineZipActionsHandler(pathToProject, outDir) {
     console.log('post actions');
     process.chdir(pathToProject);
@@ -143,6 +144,7 @@ var InteractiveModeCommands;
     InteractiveModeCommands["close"] = "close";
     InteractiveModeCommands["printWorkingDirectory"] = "pwd";
     InteractiveModeCommands["printCommandNumber"] = "pcn";
+    InteractiveModeCommands["listFiles"] = "ls";
 })(InteractiveModeCommands || (InteractiveModeCommands = {}));
 async function handleInteractiveApplicationMode(options) {
     console.log('interactive');
@@ -197,6 +199,16 @@ async function handleInteractiveApplicationMode(options) {
         }
         else if (command === InteractiveModeCommands.printCommandNumber) {
             console.log(commandNumber);
+        }
+        else if (command === InteractiveModeCommands.listFiles) {
+            try {
+                const files = await readdir(options.outDir);
+                const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
+                console.log(filesAsString);
+            }
+            catch (e) {
+                console.log('ls fails with error: ', e);
+            }
         }
         else {
             console.log('unknown command', command);

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeValidatedScriptsToAppMakerXML = exports.generateJSProjectForAppMaker = exports.readAppMakerViews = exports.readAppMakerSingleView = exports.readAppMakerModels = exports.readAppMakerSingleModel = exports.readAppMakerScripts = exports.readAppMakerSingleScript = exports.getViewsNames = exports.getModelsNames = exports.getScriptsNames = exports.readLinterConfig = exports.readTSConfig = exports.getPathToViews = exports.getPathToModels = exports.getPathToScrips = void 0;
-const { stat: oldStat, readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
+const { readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile, rm: oldRm, mkdir: oldMkDir, copyFile: oldCopyFile, access: oldAccess, constants, } = require('fs');
 const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
 const ts = require("typescript");

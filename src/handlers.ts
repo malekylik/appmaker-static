@@ -9,12 +9,13 @@ import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from '
 import { getCommandNumberFromApp, takeScreenshoot } from './appmaker-network-actions';
 import { stdin } from 'node:process';
 
-const { stat: oldStat, rm: oldRm } = require('fs');
+const { stat: oldStat, rm: oldRm, readdir: oldReaddir } = require('fs');
 const { promisify } = require('util');
 
 const rm = promisify(oldRm);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
+const readdir = promisify(oldReaddir);
 
 export async function postOfflineZipActionsHandler(pathToProject: string, outDir: string) {
   console.log('post actions');
@@ -177,6 +178,7 @@ enum InteractiveModeCommands {
   close = 'close',
   printWorkingDirectory = 'pwd',
   printCommandNumber = 'pcn',
+  listFiles = 'ls',
 }
 
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
@@ -244,6 +246,14 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       console.log(options.outDir);
     } else if (command === InteractiveModeCommands.printCommandNumber) {
       console.log(commandNumber);
+    } else if (command === InteractiveModeCommands.listFiles) {
+      try {
+        const files: Array<string> = await readdir(options.outDir);
+        const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
+        console.log(filesAsString);
+      } catch (e) {
+        console.log('ls fails with error: ', e);
+      }
     } else {
       console.log('unknown command', command);
     }
