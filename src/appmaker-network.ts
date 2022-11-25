@@ -46,9 +46,9 @@ export async function auth(page: puppeteer.Page, credentials: { login: string; p
   await page.$eval("#username", (element: any, login: string) => element.value = login, credentials.login);
   await page.$eval("#password", (element: any, password: string) => element.value = password, credentials.password);
 
-  const submitElement = await page.$('#signInButton');
-
   await new Promise(res => setTimeout(res, 2000));
+
+  const submitElement = await page.$('#signInButton');
 
   if (!isAppPage(page.url())) {
     return;
@@ -57,13 +57,13 @@ export async function auth(page: puppeteer.Page, credentials: { login: string; p
   console.log('click');
   // According to this MDN documentation, an element's offsetParent property will return null whenever it, or any of its parents, is hidden via the display style property.
   const clicked = await submitElement!.evaluate(b => {
-    if ((b as any).offsetParent === null) {
+    //if ((b as any).offsetParent === null) {
       (b as any).click();
 
       return true;
-    }
+  //  }
 
-    return false;
+//    return false;
   });
 
   console.log('waiting for touch', clicked);
@@ -74,7 +74,7 @@ export async function auth(page: puppeteer.Page, credentials: { login: string; p
   await page.waitForNavigation({ waitUntil: 'networkidle2' });
 }
 
-async function app(page: puppeteer.Page, applicationId: string) {
+export async function app(page: puppeteer.Page, applicationId: string) {
   console.log('app routine');
 
   const xsrfToken = await getXSRFToken(page);
@@ -96,7 +96,7 @@ async function app(page: puppeteer.Page, applicationId: string) {
 }
 
 export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
-  const browser = await openBrowser();
+  const browser = await openBrowser(options);
 
   let page = null;
 
@@ -107,7 +107,7 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
   } catch (e) {
     console.log('error: cant open page', e);
 
-    console.log('closing');
+    console.log('callAppMakerApp closing');
     await browser.close();
 
     throw e;
@@ -136,7 +136,7 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
 
     throw e;
   } finally {
-    console.log('closing');
+    console.log('callAppMakerApp closing');
     await browser.close();
   }
 };

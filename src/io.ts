@@ -103,7 +103,6 @@ export async function readAppMakerSingleModel(pathToProject: string, modelName: 
   const path = `${getPathToModels(pathToProject)}/${modelName}`;
   const scriptXML = await readFile(path, 'utf-8');
 
-
   const options = {
     ignoreAttributes : false,
     attributeNamePrefix: '',
@@ -160,7 +159,7 @@ export async function readAppMakerViews(pathToProject: string, modelsNames: Arra
 
 export async function generateJSProjectForAppMaker(
   pathToProject: string, scriptsFiles: AppMakerScriptFolderContent, tsConfig: TSConfig, eslintConfig: Linter.Config<Linter.RulesRecord>, app: App
-) {
+): Promise<Array<string>> {
   try {
     await access(pathToProject, constants.F_OK);
     await rm(pathToProject, { recursive: true });

@@ -3,7 +3,7 @@ import * as puppeteer from 'puppeteer';
 import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
-import { auth, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
+import { auth, app, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
 import { getCommandNumberFromApp, takeScreenshoot } from './appmaker-network-actions';
@@ -73,11 +73,11 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
 
     printTSCheckDiagnostics(allDiagnostics);
 
-    if (allDiagnostics.length) {
-      console.log('TS check doesnt pass. Skip the rest');
+    // if (allDiagnostics.length) {
+    //   console.log('TS check doesnt pass. Skip the rest');
 
-      return { code: 1 };
-    }
+    //   return { code: 1 };
+    // }
   } else {
     console.log('No file to check for types. TS check skip')
   }
@@ -179,15 +179,20 @@ enum InteractiveModeCommands {
   printWorkingDirectory = 'pwd',
   printCommandNumber = 'pcn',
   listFiles = 'ls',
+  export = 'export',
+  screenshot = 'screenshot',
 }
 
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
   console.log('interactive');
 
-  let browser = await openBrowser();
+  let browser = await openBrowser({ headless: false });
 
-  let page = null;
+  let page: puppeteer.Page | null = null;
   let commandNumber = '';
+  let generatedFiles: Array<string> = [];
+
+  let _app = new App();
 
   try {
     console.log('open page');
@@ -196,7 +201,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
   } catch (e) {
     console.log('error: cant open page', e);
 
-    console.log('closing');
+    console.log('handleInteractiveApplicationMode interactive closing');
     await browser.close();
 
     throw e;
@@ -252,7 +257,50 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
         const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
         console.log(filesAsString);
       } catch (e) {
-        console.log('ls fails with error: ', e);
+        console.log('ls failed with error: ', e);
+      }
+    } else if (command === InteractiveModeCommands.export) {
+      try {
+        const passedPath = await app(page!, options.outDir);
+
+        let pathToProject = passedPath;
+
+        pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
+
+        await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
+
+        const [linterConfig, tsConfig] = await Promise.all([
+          readLinterConfig(),
+          readTSConfig(),
+        ]);
+      
+        const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
+          getScriptsNames(pathToProject),
+          getModelsNames(pathToProject),
+          getViewsNames(pathToProject),
+        ]);
+      
+        const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
+          readAppMakerScripts(pathToProject, scriptsNames),
+          readAppMakerModels(pathToProject, modelsNames),
+          readAppMakerViews(pathToProject, viewsNames),
+        ]);
+      
+      
+        initAppMakerApp(_app, modelsFiles, viewsFiles);
+      
+        const pathToGenerateJSProjectDir = options.outDir;
+      
+        generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, _app);
+      } catch (e) {
+        console.log('Export failed with error: ', e);
+      }
+    } else if (command === InteractiveModeCommands.screenshot) {
+      try {
+        await takeScreenshoot(page!);
+        console.log('screenshot done');
+      } catch (e) {
+        console.log(`${InteractiveModeCommands.screenshot} failed with error: `, e);
       }
     } else {
       console.log('unknown command', command);

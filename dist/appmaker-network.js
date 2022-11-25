@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.callAppMakerApp = exports.auth = exports.isAppPage = exports.isAuthPage = exports.openBrowser = void 0;
+exports.callAppMakerApp = exports.app = exports.auth = exports.isAppPage = exports.isAuthPage = exports.openBrowser = void 0;
 const puppeteer = require("puppeteer");
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
@@ -9,8 +9,7 @@ const appmaker_network_actions_1 = require("./appmaker-network-actions");
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
 async function openBrowser(options = {}) {
-    var _a;
-    const headless = (_a = options.headless) !== null && _a !== void 0 ? _a : 'chrome';
+    const headless = options.headless ?? 'chrome';
     const DEFAULT_ARGS = [
         '--disable-background-networking',
         '--disable-extensions',
@@ -40,19 +39,19 @@ async function auth(page, credentials) {
     // TODO: what if credentials have already been provided and only touch is left
     await page.$eval("#username", (element, login) => element.value = login, credentials.login);
     await page.$eval("#password", (element, password) => element.value = password, credentials.password);
-    const submitElement = await page.$('#signInButton');
     await new Promise(res => setTimeout(res, 2000));
+    const submitElement = await page.$('#signInButton');
     if (!isAppPage(page.url())) {
         return;
     }
     console.log('click');
     // According to this MDN documentation, an element's offsetParent property will return null whenever it, or any of its parents, is hidden via the display style property.
     const clicked = await submitElement.evaluate(b => {
-        if (b.offsetParent === null) {
-            b.click();
-            return true;
-        }
-        return false;
+        //if ((b as any).offsetParent === null) {
+        b.click();
+        return true;
+        //  }
+        //    return false;
     });
     console.log('waiting for touch', clicked);
     // TODO: what if credentials have already been provided and only touch is left
@@ -72,8 +71,9 @@ async function app(page, applicationId) {
     await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
     return appZipPath;
 }
+exports.app = app;
 async function callAppMakerApp(applicationId, credentials, options = {}) {
-    const browser = await openBrowser();
+    const browser = await openBrowser(options);
     let page = null;
     try {
         console.log('open page');
@@ -81,7 +81,7 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
     }
     catch (e) {
         console.log('error: cant open page', e);
-        console.log('closing');
+        console.log('callAppMakerApp closing');
         await browser.close();
         throw e;
     }
@@ -106,7 +106,7 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         throw e;
     }
     finally {
-        console.log('closing');
+        console.log('callAppMakerApp closing');
         await browser.close();
     }
 }

@@ -15,7 +15,7 @@ export interface ModelFile {
   model: {
     name: string;
     modelPermission: {};
-    field: Array<{ name: string; type: string; required: string; }>;
+    field?: Array<{ name: string; type: string; required: 'true' | 'false'; autoIncrement: 'true' | 'false'; }>;
     permission: Array<{}>;
     dataSource: Array<DataSource> | DataSource;
   };

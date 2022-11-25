@@ -9,6 +9,7 @@
     "quotes": ["error", "single"],
     "no-unused-expressions": "error",
     "no-trailing-spaces": "error",
-    "no-unused-vars": "error"
+    "no-unused-vars": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }] 
   }
 }

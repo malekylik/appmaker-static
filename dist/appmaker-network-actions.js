@@ -49,13 +49,12 @@ function getXSRFToken(page) {
 }
 exports.getXSRFToken = getXSRFToken;
 async function getCommandNumberFromApp(page) {
-    var _a;
     const lastPart = await page.evaluate(() => {
         const script = document.body.children[0];
         const lastPart = script.innerText.slice(script.innerText.length - 100, script.innerText.length);
         return lastPart;
     });
-    const commandId = (_a = toUtfStr(lastPart).match(/"2":"(\d+)"}/)) === null || _a === void 0 ? void 0 : _a[1];
+    const commandId = toUtfStr(lastPart).match(/"2":"(\d+)"}/)?.[1];
     if (!commandId) {
         throw new Error('Cannot get command id');
     }
