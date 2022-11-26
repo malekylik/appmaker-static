@@ -7,9 +7,18 @@ export interface ScriptFile {
   };
 }
 
-export interface DataSource {
+export interface QueryDataSource {
+  type: 'QUERY';
+  name: string;
+  customQuery?: string; // code of the query
+}
+
+export interface SQLScriptDataSource {
+  type: 'SQL';
   name: string;
 }
+
+export type DataSource = QueryDataSource | SQLScriptDataSource;
 
 export interface ModelFile {
   model: {
@@ -30,7 +39,7 @@ export interface ModelFile {
 // <property name="action" type="String" isNull="true"/>
 export interface ViewFile {
   component: {
-    property: Array<{ name: string; type: string; '#text'?: string; }>;
+    property: Array<{ name: string; type: string; '#text'?: string; component: Array<unknown> }>;
     key: string;
     permission: unknown;
     class: string;

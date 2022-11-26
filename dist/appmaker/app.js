@@ -2,16 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initAppMakerApp = exports.App = void 0;
 const type_declaration_1 = require("./type-declaration");
-const getViewName = (view) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
-const getIsViewFragment = (view) => !!view.component.property.find(property => property.name === 'isCustomWidget')?.['#text'];
-function converAppMakerPropertyTypeToTSType(type) {
-    switch (type) {
-        case 'Number': return 'number';
-        case 'String': return 'string';
-        case 'Boolean': return 'boolean';
-    }
-    return type;
-}
+const script_filte_1 = require("./script-filte");
+const getViewProperty = (view, propertyName) => view.component.property.find(property => property.name === propertyName);
+const getViewName = (view) => getViewProperty(view, 'name')?.['#text'] ?? '';
+const getIsViewFragment = (view) => !!getViewProperty(view, 'isCustomWidget')?.['#text'];
+const getViewChildren = (view) => getViewProperty(view, 'children')?.['component'];
 class App {
     constructor() {
         this.views = [];
@@ -28,6 +23,9 @@ class App {
         const viewFragments = this.views.filter(view => view.isViewFragment).map(view => view.name);
         return (0, type_declaration_1.generateTypeDeclarationFile)(views, viewFragments, this.models);
     }
+    generateDatasourceSourceFile() {
+        return (0, script_filte_1.generateDatasourceSourceFile)(this.models);
+    }
 }
 exports.App = App;
 function parseModelField(fields) {
@@ -40,6 +38,7 @@ function parseModelField(fields) {
 function initAppMakerApp(app, modelsFiles, viewsFiles) {
     modelsFiles.forEach((modelFile) => {
         const file = modelFile.file;
+        console.log(modelFile.name, modelFile.file.model.dataSource);
         const model = {
             name: file.model.name,
             fields: parseModelField(file.model.field),
@@ -49,6 +48,11 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
     });
     viewsFiles.forEach((viewFile) => {
         const file = viewFile.file;
+        // if (viewFile.name === 'RiskAssesmentView.xml') {
+        //   console.log('json for ', viewFile.name);
+        //   console.log('component', getViewChildren(file))
+        //   file.component.property.forEach((property => console.log(property)));
+        // }
         const view = {
             name: getViewName(file),
             key: file.component.key,

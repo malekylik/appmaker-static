@@ -1,27 +1,20 @@
-import { ModelFile, ViewFile } from '../appmaker';
+import { DataSource, ModelFile, ViewFile } from '../appmaker';
 import { AppMakerModelFolderContent, AppMakerViewFolderContent } from '../io';
 import { generateTypeDeclarationFile } from './type-declaration';
+import { generateDatasourceSourceFile } from './script-filte';
 
 export interface Model {
-  name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<{ name: string; }>;
+  name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
 }
 
 export interface View {
   name: string; key: string; class: string; isViewFragment: boolean;
 }
 
-const getViewName = (view: ViewFile) => view.component.property.find(property => property.name === 'name')?.['#text'] ?? '';
-const getIsViewFragment = (view: ViewFile) => !!view.component.property.find(property => property.name === 'isCustomWidget')?.['#text'];
-
-function converAppMakerPropertyTypeToTSType(type: string): string {
-  switch(type) {
-    case 'Number': return 'number';
-    case 'String': return 'string';
-    case 'Boolean': return 'boolean';
-  }
-
-  return type;
-}
+const getViewProperty = (view: ViewFile, propertyName: string) => view.component.property.find(property => property.name === propertyName);
+const getViewName = (view: ViewFile) => getViewProperty(view, 'name')?.['#text'] ?? '';
+const getIsViewFragment = (view: ViewFile) => !!getViewProperty(view, 'isCustomWidget')?.['#text'];
+const getViewChildren = (view: ViewFile) => getViewProperty(view, 'children')?.['component'];
 
 export class App {
   private views: Array<View> = [];
@@ -41,6 +34,10 @@ export class App {
 
     return generateTypeDeclarationFile(views, viewFragments, this.models);
   }
+
+  generateDatasourceSourceFile(): string {
+    return generateDatasourceSourceFile(this.models);
+  }
 }
 
 function parseModelField(fields: ModelFile['model']['field']): Model['fields'] {
@@ -57,6 +54,8 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
   modelsFiles.forEach((modelFile) => {
     const file = modelFile.file;
 
+    console.log(modelFile.name, modelFile.file.model.dataSource);
+
     const model: Model = {
       name: file.model.name,
       fields: parseModelField(file.model.field),
@@ -68,6 +67,12 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
 
   viewsFiles.forEach((viewFile) => {
     const file = viewFile.file;
+
+    // if (viewFile.name === 'RiskAssesmentView.xml') {
+    //   console.log('json for ', viewFile.name);
+    //   console.log('component', getViewChildren(file))
+    //   file.component.property.forEach((property => console.log(property)));
+    // }
 
     const view: View = {
       name: getViewName(file),
