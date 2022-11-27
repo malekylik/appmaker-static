@@ -10,14 +10,6 @@ var TypeToGenerate;
     TypeToGenerate["ViewFragments"] = "ViewFragments";
     TypeToGenerate["Datasources"] = "Datasources";
 })(TypeToGenerate || (TypeToGenerate = {}));
-function converAppMakerPropertyTypeToTSType(type) {
-    switch (type) {
-        case 'Number': return 'number';
-        case 'String': return 'string';
-        case 'Boolean': return 'boolean';
-    }
-    return type;
-}
 function generateTypeDeclarationFile(views, viewFragments, models) {
     const pathToDFile = path.resolve(__dirname, '../../src/appmaker/index.d.ts');
     let program = ts.createProgram([pathToDFile], { allowJs: true });
@@ -32,8 +24,8 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         return ts.factory.createTypeLiteralNode(datasources.map((name) => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Datasource'), [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))]))));
     }
     function createModelProperties(fields) {
-        return ts.factory.createTypeLiteralNode(fields.map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))) :
-            ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType('null')))]))));
+        return ts.factory.createTypeLiteralNode(fields.map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))) :
+            ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)('null')))]))));
     }
     function substituteNode(_, node) {
         if (ts.isTypeAliasDeclaration(node)) {
@@ -93,9 +85,32 @@ function generateDataserviceSourceFile(models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
     }
+    const datasourceParams = models.flatMap(model => model.dataSources.map(datasource => {
+        let parameters = [];
+        let name = '';
+        if ((0, generate_utils_1.isDataSourceContainsParams)(datasource)) {
+            name = (0, generate_utils_1.getNameForDataSourceParams)(model.name, datasource.name);
+            parameters = Array.isArray(datasource.parameters.property) ? datasource.parameters.property : [datasource.parameters.property];
+        }
+        if ((0, generate_utils_1.isDataSourceContainsProperties)(datasource)) {
+            name = (0, generate_utils_1.getNameForDataSourceProperties)(model.name, datasource.name);
+            parameters = Array.isArray(datasource.customProperties.property) ? datasource.customProperties.property : [datasource.customProperties.property];
+        }
+        if (parameters.length !== 0) {
+            // TODO: can be utility
+            const parametersAsType = parameters.map(parameter => {
+                const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
+                const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))]);
+                return (0, generate_utils_1.createLiteralTypeProperty)(parameter.name, type);
+            });
+            return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
+        }
+        return null;
+    }))
+        .filter((n) => !!n);
     const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.External);
     const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false }, { substituteNode: substituteNode });
-    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements]), resultFile);
+    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements, ...datasourceParams]), resultFile);
     return result;
     function substituteNode(_, node) {
         if (ts.isModuleDeclaration(node)) {

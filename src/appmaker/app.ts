@@ -63,7 +63,7 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
       fields: parseModelField(file.model.field),
       dataSources: Array.isArray(file.model.dataSource) ? file.model.dataSource : [file.model.dataSource]
     };
-  
+
     app.addModel(model);
   });
 

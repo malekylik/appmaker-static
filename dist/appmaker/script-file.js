@@ -14,7 +14,15 @@ function generateDatasourceSourceFile(models) {
         ]);
         const statements = [];
         if (isQueryObjectUsed) {
-            statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query'));
+            if ((0, generate_utils_1.isDataSourceContainsParams)(datasource)) {
+                statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${(0, generate_utils_1.getNameForDataSourceParams)(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
+            }
+            if ((0, generate_utils_1.isDataSourceContainsProperties)(datasource)) {
+                statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${(0, generate_utils_1.getNameForDataSourceProperties)(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
+            }
+            else {
+                statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query\n@returns {Array<unknown>}'));
+            }
         }
         statements.push(ts.factory.createFunctionDeclaration([ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], undefined, ts.factory.createIdentifier(getFunctionName(model.name, datasource.name)), [], functionParams, undefined, functionBody));
         return statements;

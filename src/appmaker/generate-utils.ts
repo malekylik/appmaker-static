@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { DataSource, DataSourceWithParams, DataSourceWithProperties } from '../appmaker';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -14,3 +15,27 @@ export function createLiteralTypeProperty(name: string, type: ts.TypeNode): ts.P
   return ts.factory.createPropertySignature(
     [], name, undefined, type);
 }
+
+export function converAppMakerPropertyTypeToTSType(type: string): string {
+  switch(type) {
+    case 'Number': return 'number';
+    case 'String': return 'string';
+    case 'Boolean': return 'boolean';
+    case 'Date': return 'Date';
+
+    case 'List[Number]': return 'List<number>';
+    case 'List[String]': return 'List<string>';
+    case 'List[Boolean]': return 'List<boolean>';
+    case 'List[Date]': return 'List<Date>';
+
+    case 'Dynamic': return 'unknown';
+  }
+
+  return type;
+}
+
+export const getNameForDataSourceParams = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Params`;
+export const getNameForDataSourceProperties = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Properties`;
+
+export const isDataSourceContainsParams = (datasource: DataSource): datasource is (DataSource & DataSourceWithParams) => 'parameters' in datasource;
+export const isDataSourceContainsProperties = (datasource: DataSource): datasource is (DataSource & DataSourceWithProperties) => 'customProperties' in datasource;

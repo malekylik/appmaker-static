@@ -1,7 +1,10 @@
 import { QueryDataSource } from '../appmaker';
 import * as ts from 'typescript';
 import type { Model } from './app';
-import { hexHtmlToString } from './generate-utils';
+import {
+  getNameForDataSourceParams, getNameForDataSourceProperties, hexHtmlToString,
+  isDataSourceContainsParams, isDataSourceContainsProperties
+} from './generate-utils';
 
 export function generateDatasourceSourceFile(models: Array<Model>): string {
   const getFunctionName = (modelName: string, datasource: string): string => `${modelName}_${datasource}`;
@@ -17,7 +20,13 @@ export function generateDatasourceSourceFile(models: Array<Model>): string {
     const statements: Array<ts.Node> = [];
 
     if (isQueryObjectUsed) {
-      statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query'))
+      if (isDataSourceContainsParams(datasource)) {
+        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceParams(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
+      } if (isDataSourceContainsProperties(datasource)) {
+        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceProperties(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
+      } else {
+        statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query\n@returns {Array<unknown>}'));
+      }
     }
 
     statements.push(ts.factory.createFunctionDeclaration(

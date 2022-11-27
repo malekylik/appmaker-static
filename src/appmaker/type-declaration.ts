@@ -1,22 +1,15 @@
 import * as ts from 'typescript';
 import * as path from 'path';
 import type { Model } from './app';
-import { getModelName, createLiteralTypeProperty } from './generate-utils';
+import {
+  getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType,
+  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams,
+} from './generate-utils';
 
 enum TypeToGenerate {
   Views = 'Views',
   ViewFragments = 'ViewFragments',
   Datasources = 'Datasources',
-}
-
-function converAppMakerPropertyTypeToTSType(type: string): string {
-  switch(type) {
-    case 'Number': return 'number';
-    case 'String': return 'string';
-    case 'Boolean': return 'boolean';
-  }
-
-  return type;
 }
 
 export function generateTypeDeclarationFile(views: Array<string>, viewFragments: Array<string>, models: Array<Model>): string {
@@ -132,11 +125,41 @@ export function generateDataserviceSourceFile(models: Array<Model>): string {
     throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
   }
 
+  const datasourceParams = models.flatMap(model => model.dataSources.map(datasource => {
+    let parameters: Array<{ name: string; type: string; }> = [];
+    let name = '';
+
+    if (isDataSourceContainsParams(datasource)) {
+      name = getNameForDataSourceParams(model.name, datasource.name);
+      parameters = Array.isArray(datasource.parameters.property) ? datasource.parameters.property : [datasource.parameters.property];
+    }
+
+    if (isDataSourceContainsProperties(datasource)) {
+      name = getNameForDataSourceProperties(model.name, datasource.name);
+      parameters = Array.isArray(datasource.customProperties.property) ? datasource.customProperties.property : [datasource.customProperties.property];
+    }
+
+    if (parameters.length !== 0) {
+      // TODO: can be utility
+      const parametersAsType = parameters.map(parameter => {
+        const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
+        const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))])
+
+        return createLiteralTypeProperty(parameter.name, type);
+      });
+
+      return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
+    }
+
+    return null;
+  }))
+  .filter(<T> (n: T | null): n is T => !!n);
+
   const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.External);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false }, { substituteNode: substituteNode });
   const result = printer.printList(
     ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
-    ts.factory.createNodeArray([...sourceFile.statements]), resultFile);
+    ts.factory.createNodeArray([...sourceFile.statements, ...datasourceParams]), resultFile);
 
   return result;
 

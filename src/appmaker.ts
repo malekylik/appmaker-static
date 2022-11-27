@@ -7,16 +7,30 @@ export interface ScriptFile {
   };
 }
 
-export interface QueryDataSource {
+export type DataSourceParam = { name: string; type: string; isNull: 'true' | 'false'; };
+export type DataSourceProperty = { name: string; type: string; };
+
+
+export type DataSourceWithParams = {
+  parameters: { property: Array<DataSourceParam> | DataSourceParam };
+}
+
+export type DataSourceWithProperties = {
+  customProperties: { property: Array<DataSourceProperty> | DataSourceProperty };
+}
+
+type DataSourceWithParamsOrProperties = DataSourceWithParams | DataSourceWithProperties;
+
+export type QueryDataSource = {
   type: 'QUERY';
   name: string;
   customQuery?: string; // code of the query
-}
+} & DataSourceWithParamsOrProperties;
 
-export interface SQLScriptDataSource {
+export type SQLScriptDataSource = {
   type: 'SQL';
   name: string;
-}
+} & DataSourceWithParamsOrProperties;
 
 export type DataSource = QueryDataSource | SQLScriptDataSource;
 
