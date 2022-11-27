@@ -1,6 +1,7 @@
 import * as ts from 'typescript';
 import * as path from 'path';
 import type { Model } from './app';
+import { getModelName, createLiteralTypeProperty } from './generate-utils';
 
 enum TypeToGenerate {
   Views = 'Views',
@@ -26,11 +27,6 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
   
   if (!sourceFile) {
     throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
-  }
-  
-  function createLiteralTypeProperty(name: string, type: ts.TypeNode): ts.PropertySignature {
-    return ts.factory.createPropertySignature(
-      [], name, undefined, type);
   }
   
   function createViewProperties(viewsNames: Array<string>): ts.TypeLiteralNode {
@@ -88,8 +84,6 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
     return node;
   }
 
-  const getModelName = (name: string): string => `Model_${name}`;
-
   const modelsTS = models
     .map(model => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], getModelName(model.name), [], createModelProperties(model.fields)))
     .sort((a, b) => {
@@ -122,3 +116,64 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
 
   return result;
 }
+
+enum TypeToGenerate {
+  ModelNames = 'ModelNames',
+  ModelNamesToModelTypeMap = 'ModelNamesToModelTypeMap',
+}
+
+export function generateDataserviceSourceFile(models: Array<Model>): string {
+  const pathToDFile = path.resolve(__dirname, '../../src/appmaker/dataService.d.ts');
+
+  let program = ts.createProgram([pathToDFile], { allowJs: true });
+  const sourceFile = program.getSourceFile(pathToDFile)!;
+  
+  if (!sourceFile) {
+    throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
+  }
+
+  const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.External);
+  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false }, { substituteNode: substituteNode });
+  const result = printer.printList(
+    ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
+    ts.factory.createNodeArray([...sourceFile.statements]), resultFile);
+
+  return result;
+
+  function substituteNode(_: ts.EmitHint, node: ts.Node): ts.Node {
+    if (ts.isModuleDeclaration(node)) {
+      // For some reason just leaving node makes printer removes the name of the modules
+      return ts.factory.createModuleDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], ts.factory.createStringLiteral(node.name.text), node.body);
+    }
+
+    if (ts.isTypeAliasDeclaration(node)) {
+      const typeName = node.name.escapedText;
+  
+      if (typeName === TypeToGenerate.ModelNames) {
+        const newNode = ts.factory.createTypeAliasDeclaration(
+          [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
+          ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name)))),
+        );
+  
+        return newNode;
+      }
+
+      if (typeName === TypeToGenerate.ModelNamesToModelTypeMap) {
+        const type = ts.factory.createTypeLiteralNode(models.map(
+          (model) => createLiteralTypeProperty(model.name,
+              ts.factory.createTypeReferenceNode(
+                getModelName(model.name))
+                )))
+
+        const generatedNode = ts.factory.createTypeAliasDeclaration(node.modifiers, node.name, undefined, type);
+
+        return generatedNode;
+      }
+
+      return node;
+    }
+  
+    return node;
+  }
+}
+

@@ -2,6 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateDatasourceSourceFile = void 0;
 const ts = require("typescript");
+var TypeToGenerate;
+(function (TypeToGenerate) {
+    TypeToGenerate["ModelNames"] = "ModelNames";
+})(TypeToGenerate || (TypeToGenerate = {}));
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
     return str.replace(REG_HEX, function (match, grp) {
@@ -26,9 +30,32 @@ function generateDatasourceSourceFile(models) {
         return statements;
     }));
     const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-    const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+    const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed }, { substituteNode: substituteNode });
     const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray(statements), resultFile);
     return result;
-    ;
+    function substituteNode(_, node) {
+        if (ts.isTypeAliasDeclaration(node)) {
+            const typeName = node.name.escapedText;
+            if (typeName === TypeToGenerate.ModelNames) {
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name)))));
+                return newNode;
+            }
+            // if (typeName === TypeToGenerate.ViewFragments) {
+            //   const newNode = ts.factory.createTypeAliasDeclaration(
+            //     [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
+            //     createViewProperties(viewFragments),
+            //   );
+            //   return newNode;
+            // }
+            // if (typeName === TypeToGenerate.Datasources) {
+            //   const newNode = ts.factory.createTypeAliasDeclaration(
+            //     [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
+            //     createDatasourceProperties(models.flatMap(model => model.dataSources.map(datasource => datasource.name))),
+            //   );
+            //   return newNode;
+            // }
+        }
+        return node;
+    }
 }
 exports.generateDatasourceSourceFile = generateDatasourceSourceFile;

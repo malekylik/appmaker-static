@@ -13,7 +13,7 @@
     "strictFunctionTypes": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "noPropertyAccessFromIndexSignature": true,
+    "noPropertyAccessFromIndexSignature": false,
     "baseUrl": ".",
     "outDir": "dist"
   }

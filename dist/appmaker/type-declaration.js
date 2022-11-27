@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateTypeDeclarationFile = void 0;
+exports.generateDataserviceSourceFile = exports.generateTypeDeclarationFile = void 0;
 const ts = require("typescript");
 const path = require("path");
+const generate_utils_1 = require("./generate-utils");
 var TypeToGenerate;
 (function (TypeToGenerate) {
     TypeToGenerate["Views"] = "Views";
@@ -24,17 +25,14 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
     }
-    function createLiteralTypeProperty(name, type) {
-        return ts.factory.createPropertySignature([], name, undefined, type);
-    }
     function createViewProperties(viewsNames) {
-        return ts.factory.createTypeLiteralNode(viewsNames.map(name => createLiteralTypeProperty(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))));
+        return ts.factory.createTypeLiteralNode(viewsNames.map(name => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))));
     }
     function createDatasourceProperties(datasources) {
-        return ts.factory.createTypeLiteralNode(datasources.map((name) => createLiteralTypeProperty(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Datasource'), [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))]))));
+        return ts.factory.createTypeLiteralNode(datasources.map((name) => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Datasource'), [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))]))));
     }
     function createModelProperties(fields) {
-        return ts.factory.createTypeLiteralNode(fields.map(field => createLiteralTypeProperty(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))) :
+        return ts.factory.createTypeLiteralNode(fields.map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))) :
             ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType('null')))]))));
     }
     function substituteNode(_, node) {
@@ -55,9 +53,8 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         }
         return node;
     }
-    const getModelName = (name) => `Model_${name}`;
     const modelsTS = models
-        .map(model => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], getModelName(model.name), [], createModelProperties(model.fields)))
+        .map(model => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], (0, generate_utils_1.getModelName)(model.name), [], createModelProperties(model.fields)))
         .sort((a, b) => {
         if (a.name < b.name) {
             return -1;
@@ -68,7 +65,7 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         return 0;
     });
     const datasourcesTS = models
-        .flatMap(model => model.dataSources.map(datasource => ({ name: datasource.name, ModelName: getModelName(model.name) }))) // propagate generated types to each datasource
+        .flatMap(model => model.dataSources.map(datasource => ({ name: datasource.name, ModelName: (0, generate_utils_1.getModelName)(model.name) }))) // propagate generated types to each datasource
         .sort((a, b) => {
         if (a.name < b.name) {
             return -1;
@@ -85,3 +82,40 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     return result;
 }
 exports.generateTypeDeclarationFile = generateTypeDeclarationFile;
+(function (TypeToGenerate) {
+    TypeToGenerate["ModelNames"] = "ModelNames";
+    TypeToGenerate["ModelNamesToModelTypeMap"] = "ModelNamesToModelTypeMap";
+})(TypeToGenerate || (TypeToGenerate = {}));
+function generateDataserviceSourceFile(models) {
+    const pathToDFile = path.resolve(__dirname, '../../src/appmaker/dataService.d.ts');
+    let program = ts.createProgram([pathToDFile], { allowJs: true });
+    const sourceFile = program.getSourceFile(pathToDFile);
+    if (!sourceFile) {
+        throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
+    }
+    const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.External);
+    const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false }, { substituteNode: substituteNode });
+    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements]), resultFile);
+    return result;
+    function substituteNode(_, node) {
+        if (ts.isModuleDeclaration(node)) {
+            // For some reason just leaving node makes printer removes the name of the modules
+            return ts.factory.createModuleDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], ts.factory.createStringLiteral(node.name.text), node.body);
+        }
+        if (ts.isTypeAliasDeclaration(node)) {
+            const typeName = node.name.escapedText;
+            if (typeName === TypeToGenerate.ModelNames) {
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name)))));
+                return newNode;
+            }
+            if (typeName === TypeToGenerate.ModelNamesToModelTypeMap) {
+                const type = ts.factory.createTypeLiteralNode(models.map((model) => (0, generate_utils_1.createLiteralTypeProperty)(model.name, ts.factory.createTypeReferenceNode((0, generate_utils_1.getModelName)(model.name)))));
+                const generatedNode = ts.factory.createTypeAliasDeclaration(node.modifiers, node.name, undefined, type);
+                return generatedNode;
+            }
+            return node;
+        }
+        return node;
+    }
+}
+exports.generateDataserviceSourceFile = generateDataserviceSourceFile;

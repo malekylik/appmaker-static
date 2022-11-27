@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initAppMakerApp = exports.App = void 0;
 const type_declaration_1 = require("./type-declaration");
-const script_filte_1 = require("./script-filte");
+const script_file_1 = require("./script-file");
 const getViewProperty = (view, propertyName) => view.component.property.find(property => property.name === propertyName);
 const getViewName = (view) => getViewProperty(view, 'name')?.['#text'] ?? '';
 const getIsViewFragment = (view) => !!getViewProperty(view, 'isCustomWidget')?.['#text'];
@@ -23,8 +23,11 @@ class App {
         const viewFragments = this.views.filter(view => view.isViewFragment).map(view => view.name);
         return (0, type_declaration_1.generateTypeDeclarationFile)(views, viewFragments, this.models);
     }
+    generateDataserviceSourceFile() {
+        return (0, type_declaration_1.generateDataserviceSourceFile)(this.models);
+    }
     generateDatasourceSourceFile() {
-        return (0, script_filte_1.generateDatasourceSourceFile)(this.models);
+        return (0, script_file_1.generateDatasourceSourceFile)(this.models);
     }
 }
 exports.App = App;
@@ -38,7 +41,6 @@ function parseModelField(fields) {
 function initAppMakerApp(app, modelsFiles, viewsFiles) {
     modelsFiles.forEach((modelFile) => {
         const file = modelFile.file;
-        console.log(modelFile.name, modelFile.file.model.dataSource);
         const model = {
             name: file.model.name,
             fields: parseModelField(file.model.field),

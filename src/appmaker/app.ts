@@ -1,7 +1,7 @@
 import { DataSource, ModelFile, ViewFile } from '../appmaker';
 import { AppMakerModelFolderContent, AppMakerViewFolderContent } from '../io';
-import { generateTypeDeclarationFile } from './type-declaration';
-import { generateDatasourceSourceFile } from './script-filte';
+import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
+import { generateDatasourceSourceFile } from './script-file';
 
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
@@ -35,6 +35,10 @@ export class App {
     return generateTypeDeclarationFile(views, viewFragments, this.models);
   }
 
+  generateDataserviceSourceFile(): string {
+    return generateDataserviceSourceFile(this.models);
+  }
+
   generateDatasourceSourceFile(): string {
     return generateDatasourceSourceFile(this.models);
   }
@@ -53,8 +57,6 @@ function parseModelField(fields: ModelFile['model']['field']): Model['fields'] {
 export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent): void {
   modelsFiles.forEach((modelFile) => {
     const file = modelFile.file;
-
-    console.log(modelFile.name, modelFile.file.model.dataSource);
 
     const model: Model = {
       name: file.model.name,

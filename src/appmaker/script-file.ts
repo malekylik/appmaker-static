@@ -1,14 +1,7 @@
 import { QueryDataSource } from '../appmaker';
 import * as ts from 'typescript';
 import type { Model } from './app';
-
-function hexHtmlToString(str: string): string {
-  const REG_HEX = /&#x([a-fA-F0-9]+);/g;
-  return str.replace(REG_HEX, function(match, grp){
-      const num = parseInt(grp, 16);
-      return String.fromCharCode(num);
-  });
-}
+import { hexHtmlToString } from './generate-utils';
 
 export function generateDatasourceSourceFile(models: Array<Model>): string {
   const getFunctionName = (modelName: string, datasource: string): string => `${modelName}_${datasource}`;

@@ -1,15 +1,31 @@
+declare type ModelNames = /** generated */ unknown;
+
+declare type ModelNamesToModelTypeMap = {
+  /** generated */
+}
+
+// Passed by AppMaker to model scripts
 declare interface RecordQuery <T extends Record<string, unknown> = Record<string, unknown>> {
-  // TODO: add generation
-  model: string;
+  model: ModelNames;
   limit?: number;
   parameters: T;
 }
 
+// Passed by user to DataService methods
+declare interface QueryRecord<T extends ModelNames> {
+  model: T;
+
+  filters?: Record<string, unknown>;
+  sortBy?: Array<[fieldPath: string, ascending?: boolean]>;
+  prefetch?: Array<ModelNames>;
+}
+
 declare module 'dataService' {
   interface DataService {
-    // TODO: add generation
-    createRecord(model: string): unknown;
-    queryRecords(query: unknown): { getRecords(): Array<unknown>; };
+    createRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
+    queryRecords<T extends ModelNames>(query: QueryRecord<T>): {
+      getRecords(): Array<ModelNamesToModelTypeMap[T]>;
+    };
   }
 
   const dataService: DataService;
