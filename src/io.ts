@@ -185,7 +185,7 @@ export async function generateJSProjectForAppMaker(
 
   const pathToTypes = `${pathToProject}/type`;
   const files = tsFilesToCheck.concat([
-    `${pathToProject}/__models.js`, `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`,
+    `${pathToProject}/__models.js`, `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`,
   ]);
   const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
   await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
@@ -194,6 +194,7 @@ export async function generateJSProjectForAppMaker(
   await mkdir(pathToTypes);
 
   await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
+  await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/cloudSqlService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`);
   await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
   await writeFile(`${pathToTypes}/dataService.d.ts`, app.generateDataserviceSourceFile());
   await writeFile(`${pathToProject}/__models.js`, app.generateDatasourceSourceFile());

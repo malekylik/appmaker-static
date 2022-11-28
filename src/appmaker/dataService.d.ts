@@ -16,6 +16,7 @@ declare interface QueryRecord<T extends ModelNames> {
   model: T;
 
   filters?: Record<string, unknown>;
+  // asc - default option if ascending is not defined
   sortBy?: Array<[fieldPath: string, ascending?: boolean]>;
   prefetch?: Array<ModelNames>;
 }
@@ -23,6 +24,7 @@ declare interface QueryRecord<T extends ModelNames> {
 declare module 'dataService' {
   interface DataService {
     createRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
+    createDraftRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
     queryRecords<T extends ModelNames>(query: QueryRecord<T>): {
       getRecords(): Array<ModelNamesToModelTypeMap[T]>;
     };

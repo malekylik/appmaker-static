@@ -95,7 +95,6 @@ function generateDataserviceSourceFile(models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
     }
-    // TODO: add init func for list params
     const datasourceParams = models.flatMap(model => model.dataSources.map(datasource => {
         let parameters = [];
         let name = '';
@@ -108,7 +107,6 @@ function generateDataserviceSourceFile(models) {
             parameters = Array.isArray(datasource.customProperties.property) ? datasource.customProperties.property : [datasource.customProperties.property];
         }
         if (parameters.length !== 0) {
-            // TODO: can be utility
             let parametersAsType = parameters.map(parameter => {
                 const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
                 const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))]);
