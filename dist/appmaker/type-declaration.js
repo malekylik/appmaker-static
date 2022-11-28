@@ -20,8 +20,18 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     function createViewProperties(viewsNames) {
         return ts.factory.createTypeLiteralNode(viewsNames.map(name => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))));
     }
-    function createDatasourceProperties(datasources) {
-        return ts.factory.createTypeLiteralNode(datasources.map((name) => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Datasource'), [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))]))));
+    function createDatasourceProperties(models) {
+        return ts.factory.createTypeLiteralNode(models.flatMap(model => model.dataSources.map((datasource) => {
+            const typeArgs = [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(datasource.name))];
+            if ((0, generate_utils_1.isDataSourceContainsParams)(datasource)) {
+                typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.getNameForDataSourceParams)(model.name, datasource.name))));
+            }
+            if ((0, generate_utils_1.isDataSourceContainsProperties)(datasource)) {
+                typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Record<string, unknown>')));
+                typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.getNameForDataSourceProperties)(model.name, datasource.name))));
+            }
+            return (0, generate_utils_1.createLiteralTypeProperty)(datasource.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Datasource'), typeArgs));
+        })));
     }
     function createModelProperties(fields) {
         return ts.factory.createTypeLiteralNode(fields.map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))) :
@@ -39,7 +49,7 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
                 return newNode;
             }
             if (typeName === TypeToGenerate.Datasources) {
-                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], createDatasourceProperties(models.flatMap(model => model.dataSources.map(datasource => datasource.name))));
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], createDatasourceProperties(models));
                 return newNode;
             }
         }
@@ -85,6 +95,7 @@ function generateDataserviceSourceFile(models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for dataservice declaration file at ${pathToDFile}`);
     }
+    // TODO: add init func for list params
     const datasourceParams = models.flatMap(model => model.dataSources.map(datasource => {
         let parameters = [];
         let name = '';
@@ -98,11 +109,18 @@ function generateDataserviceSourceFile(models) {
         }
         if (parameters.length !== 0) {
             // TODO: can be utility
-            const parametersAsType = parameters.map(parameter => {
+            let parametersAsType = parameters.map(parameter => {
                 const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
                 const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))]);
                 return (0, generate_utils_1.createLiteralTypeProperty)(parameter.name, type);
             });
+            const listParameters = parameters.filter(parameter => (0, generate_utils_1.isAppMakerListType)(parameter.type));
+            const initListParameters = listParameters.map(parameter => {
+                const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
+                const type = ts.factory.createFunctionTypeNode(undefined, [], ts.factory.createTypeReferenceNode(typeString));
+                return (0, generate_utils_1.createLiteralTypeProperty)(`init${parameter.name.charAt(0).toUpperCase() + parameter.name.slice(1)}`, type);
+            });
+            parametersAsType = [...parametersAsType, ...initListParameters];
             return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
         }
         return null;

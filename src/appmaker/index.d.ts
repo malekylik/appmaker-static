@@ -1,13 +1,15 @@
 declare type List<T> = {
   size: number;
 
+  add(item: T): void;
+
   // throws IndexOutOfBoundsException
   get(index: number): T | never;
 
   toArray(): Array<T>;
 }
 
-declare type Datasource<T> = {
+declare type Datasource<T, Q = Record<string, unknown>, P = Record<string, unknown>> = {
   item: T | null;
   items: List<T> | null;
   draftRecord: T;
@@ -19,6 +21,9 @@ declare type Datasource<T> = {
 
   load(config?: { success: () => void; failure?: (e: Error) => void }): void;
   unload(): void;
+
+  properties: P;
+  query: { parameters: Q };
 };
 
 type WidgetCommon<D = null> = {

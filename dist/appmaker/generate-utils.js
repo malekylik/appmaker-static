@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -31,6 +31,16 @@ function converAppMakerPropertyTypeToTSType(type) {
     return type;
 }
 exports.converAppMakerPropertyTypeToTSType = converAppMakerPropertyTypeToTSType;
+function isAppMakerListType(type) {
+    if (type === 'List[Number]' ||
+        type === 'List[String]' ||
+        type === 'List[Boolean]' ||
+        type === 'List[Date]') {
+        return true;
+    }
+    return false;
+}
+exports.isAppMakerListType = isAppMakerListType;
 const getNameForDataSourceParams = (modelName, dataSourceName) => `${modelName}_${dataSourceName}_Params`;
 exports.getNameForDataSourceParams = getNameForDataSourceParams;
 const getNameForDataSourceProperties = (modelName, dataSourceName) => `${modelName}_${dataSourceName}_Properties`;

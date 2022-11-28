@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { Model } from './app';
 import {
   getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType,
-  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams,
+  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, isAppMakerListType,
 } from './generate-utils';
 
 enum TypeToGenerate {
@@ -26,12 +26,27 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
     return ts.factory.createTypeLiteralNode(viewsNames.map(name => createLiteralTypeProperty(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))))
   }
   
-  function createDatasourceProperties(datasources: Array<string>): ts.TypeLiteralNode {
-    return ts.factory.createTypeLiteralNode(datasources.map(
-      (name) => createLiteralTypeProperty(name,
+  function createDatasourceProperties(models: Array<Model>): ts.TypeLiteralNode {
+    return ts.factory.createTypeLiteralNode(models.flatMap(model => model.dataSources.map(
+      (datasource) => {
+        const typeArgs = [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(datasource.name))];
+
+        if (isDataSourceContainsParams(datasource)) {
+          typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(getNameForDataSourceParams(model.name, datasource.name))));
+        }
+
+        if (isDataSourceContainsProperties(datasource)) {
+          typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Record<string, unknown>')));
+
+          typeArgs.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(getNameForDataSourceProperties(model.name, datasource.name))));
+        }
+
+        return createLiteralTypeProperty(datasource.name,
           ts.factory.createTypeReferenceNode(
-            ts.factory.createIdentifier('Datasource'), [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(name))])
-            )))
+            ts.factory.createIdentifier('Datasource'), typeArgs)
+            );
+          }))
+    );
   }
 
   function createModelProperties(fields: Model['fields']): ts.TypeLiteralNode {
@@ -67,7 +82,7 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
       if (typeName === TypeToGenerate.Datasources) {
         const newNode = ts.factory.createTypeAliasDeclaration(
           [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
-          createDatasourceProperties(models.flatMap(model => model.dataSources.map(datasource => datasource.name))),
+          createDatasourceProperties(models),
         );
   
         return newNode;
@@ -140,13 +155,22 @@ export function generateDataserviceSourceFile(models: Array<Model>): string {
     }
 
     if (parameters.length !== 0) {
-      // TODO: can be utility
-      const parametersAsType = parameters.map(parameter => {
+      let parametersAsType = parameters.map(parameter => {
         const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
         const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))])
 
         return createLiteralTypeProperty(parameter.name, type);
       });
+
+      const listParameters = parameters.filter(parameter => isAppMakerListType(parameter.type));
+      const initListParameters = listParameters.map(parameter => {
+        const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
+        const type = ts.factory.createFunctionTypeNode(undefined, [], ts.factory.createTypeReferenceNode(typeString));
+
+        return createLiteralTypeProperty(`init${parameter.name.charAt(0).toUpperCase() + parameter.name.slice(1)}`, type);
+      });
+
+      parametersAsType = [...parametersAsType, ...initListParameters];
 
       return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
     }

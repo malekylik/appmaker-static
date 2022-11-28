@@ -34,6 +34,19 @@ export function converAppMakerPropertyTypeToTSType(type: string): string {
   return type;
 }
 
+export function isAppMakerListType(type: string): boolean {
+  if (
+    type === 'List[Number]' ||
+    type === 'List[String]' ||
+    type === 'List[Boolean]' ||
+    type === 'List[Date]'
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export const getNameForDataSourceParams = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Params`;
 export const getNameForDataSourceProperties = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Properties`;
 
