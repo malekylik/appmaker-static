@@ -47,8 +47,47 @@ export function isAppMakerListType(type: string): boolean {
   return false;
 }
 
+export function getTypeForProperties(properties: Array<{ name: string; type: string; }> | { name: string; type: string; }, withListInit = true): Array<ts.PropertySignature> {
+  const props = Array.isArray(properties) ? properties : [properties];
+
+  let propertiesAsType = props.map(parameter => {
+    const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
+    let type: ts.TypeNode = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))]);
+
+    // withListInit isAppMakerListType
+    // +            +                   = null
+    // -            +                   = not null
+    // +            -                   = null
+    // -            -                   = null
+
+    if (!withListInit && isAppMakerListType(parameter.type)) {
+      type = ts.factory.createTypeReferenceNode(typeString);
+    }
+
+    return createLiteralTypeProperty(parameter.name, type);
+  });
+
+  let initListProperties: Array<ts.PropertySignature> = [];
+
+  if (withListInit) {
+    const listProperties = props.filter(parameter => isAppMakerListType(parameter.type));
+    initListProperties = listProperties.map(parameter => {
+      const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
+      const type = ts.factory.createFunctionTypeNode(undefined, [], ts.factory.createTypeReferenceNode(typeString));
+  
+      return createLiteralTypeProperty(`init${parameter.name.charAt(0).toUpperCase() + parameter.name.slice(1)}`, type);
+    });
+  }
+
+  propertiesAsType = [...propertiesAsType, ...initListProperties];
+
+  return propertiesAsType;
+}
+
 export const getNameForDataSourceParams = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Params`;
 export const getNameForDataSourceProperties = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Properties`;
+export const getNameForViewProperties = (viewName: string): string => `${viewName}_View_Custom_Properties`;
+export const getNameForViewFragmentProperties = (viewName: string): string => `${viewName}_ViewFragment_Custom_Properties`;
 
 export const isDataSourceContainsParams = (datasource: DataSource): datasource is (DataSource & DataSourceWithParams) => 'parameters' in datasource;
 export const isDataSourceContainsProperties = (datasource: DataSource): datasource is (DataSource & DataSourceWithProperties) => 'customProperties' in datasource;

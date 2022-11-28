@@ -51,11 +51,45 @@ export interface ModelFile {
 // <property name="onUnload" type="String" isNull="true"/>
 // <property name="onDataLoad" type="String" isNull="true"/>
 // <property name="action" type="String" isNull="true"/>
+
+type ViewClass = 'Panel';
+
+export type ViewChildren = { property: Array<ViewProperty>, key: string, class: ViewClass };
+
+export type ChildrenPropery = { name: 'children'; type: string; '#text'?: string; component: Array<ViewChildren> | ViewChildren; };
+export type IsCustomWidgetPropery = { name: 'isCustomWidget'; '#text': string };
+export type WidgetNamePropery = { name: 'name'; '#text': string; };
+export type BindingsPropery = { name: 'bindings'; };
+export type IsRootPropery = { name: 'isRootComponent'; '#text': boolean; type: 'Boolean'; };
+
+// export type properties = { name: 'properties' };
+// customProperties
+
+export type ViewProperty =
+    ChildrenPropery
+  | IsCustomWidgetPropery
+  | WidgetNamePropery
+  | BindingsPropery
+  | IsRootPropery;
+
 export interface ViewFile {
   component: {
-    property: Array<{ name: string; type: string; '#text'?: string; component: Array<unknown> }>;
+    property: Array<ViewProperty>;
     key: string;
     permission: unknown;
     class: string;
+    customProperties?: {
+      property: Array<
+        {
+          key: string;
+          name: string;
+          type: string;
+        }
+      > | {
+        key: string;
+        name: string;
+        type: string;
+      };
+    };
   };
 }

@@ -17,8 +17,16 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
     }
-    function createViewProperties(viewsNames) {
-        return ts.factory.createTypeLiteralNode(viewsNames.map(name => (0, generate_utils_1.createLiteralTypeProperty)(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))));
+    function createViewProperties(views) {
+        return ts.factory.createTypeLiteralNode(views.map(view => {
+            const typeArguments = [];
+            if (view.customProperties.length > 0) {
+                const propertiesTypeName = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
+                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
+            }
+            return ((0, generate_utils_1.createLiteralTypeProperty)(view.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments)));
+        }));
     }
     function createDatasourceProperties(models) {
         return ts.factory.createTypeLiteralNode(models.flatMap(model => model.dataSources.map((datasource) => {
@@ -78,9 +86,18 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         return 0;
     })
         .map(datasource => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], datasource.name, [], ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(datasource.ModelName)))); // create ts type for each datasource
+    const viewsWithProperties = [
+        ...views.filter(view => view.customProperties.length > 0),
+        ...viewFragments.filter(viewFragment => viewFragment.customProperties.length > 0)
+    ];
+    const viewProperties = viewsWithProperties.map((view) => {
+        const parametersAsType = (0, generate_utils_1.getTypeForProperties)(view.customProperties, false);
+        const name = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
+        return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
+    });
     const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
     const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed }, { substituteNode: substituteNode });
-    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements, ...modelsTS, ...datasourcesTS]), resultFile);
+    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements, ...modelsTS, ...datasourcesTS, ...viewProperties]), resultFile);
     return result;
 }
 exports.generateTypeDeclarationFile = generateTypeDeclarationFile;
@@ -107,18 +124,7 @@ function generateDataserviceSourceFile(models) {
             parameters = Array.isArray(datasource.customProperties.property) ? datasource.customProperties.property : [datasource.customProperties.property];
         }
         if (parameters.length !== 0) {
-            let parametersAsType = parameters.map(parameter => {
-                const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
-                const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))]);
-                return (0, generate_utils_1.createLiteralTypeProperty)(parameter.name, type);
-            });
-            const listParameters = parameters.filter(parameter => (0, generate_utils_1.isAppMakerListType)(parameter.type));
-            const initListParameters = listParameters.map(parameter => {
-                const typeString = (0, generate_utils_1.converAppMakerPropertyTypeToTSType)(parameter.type);
-                const type = ts.factory.createFunctionTypeNode(undefined, [], ts.factory.createTypeReferenceNode(typeString));
-                return (0, generate_utils_1.createLiteralTypeProperty)(`init${parameter.name.charAt(0).toUpperCase() + parameter.name.slice(1)}`, type);
-            });
-            parametersAsType = [...parametersAsType, ...initListParameters];
+            const parametersAsType = (0, generate_utils_1.getTypeForProperties)(parameters);
             return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
         }
         return null;

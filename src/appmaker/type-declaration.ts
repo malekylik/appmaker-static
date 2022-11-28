@@ -1,9 +1,9 @@
 import * as ts from 'typescript';
 import * as path from 'path';
-import type { Model } from './app';
+import type { Model, View } from './app';
 import {
-  getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType,
-  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, isAppMakerListType,
+  getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType, getNameForViewProperties, getNameForViewFragmentProperties,
+  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, getTypeForProperties,
 } from './generate-utils';
 
 enum TypeToGenerate {
@@ -12,7 +12,7 @@ enum TypeToGenerate {
   Datasources = 'Datasources',
 }
 
-export function generateTypeDeclarationFile(views: Array<string>, viewFragments: Array<string>, models: Array<Model>): string {
+export function generateTypeDeclarationFile(views: Array<View>, viewFragments: Array<View>, models: Array<Model>): string {
   const pathToDFile = path.resolve(__dirname, '../../src/appmaker/index.d.ts');
 
   let program = ts.createProgram([pathToDFile], { allowJs: true });
@@ -21,9 +21,27 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
   if (!sourceFile) {
     throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
   }
-  
-  function createViewProperties(viewsNames: Array<string>): ts.TypeLiteralNode {
-    return ts.factory.createTypeLiteralNode(viewsNames.map(name => createLiteralTypeProperty(name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Widget')))))
+
+  function createViewProperties(views: Array<View>): ts.TypeLiteralNode {
+    return ts.factory.createTypeLiteralNode(
+      views.map(view => {
+        const typeArguments: Array<ts.TypeNode> = [];
+
+        if (view.customProperties.length > 0) {
+          const propertiesTypeName = view.isViewFragment ? getNameForViewFragmentProperties(view.name) : getNameForViewProperties(view.name);
+
+          typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+          typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
+        }
+
+        return (
+          createLiteralTypeProperty(
+            view.name,
+            ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments)
+          )
+        );
+      })
+    );
   }
   
   function createDatasourceProperties(models: Array<Model>): ts.TypeLiteralNode {
@@ -116,11 +134,22 @@ export function generateTypeDeclarationFile(views: Array<string>, viewFragments:
     })
     .map(datasource => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], datasource.name, [], ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(datasource.ModelName)))) // create ts type for each datasource
 
+  const viewsWithProperties = [
+    ...views.filter(view => view.customProperties.length > 0),
+    ...viewFragments.filter(viewFragment => viewFragment.customProperties.length > 0)
+  ];
+  const viewProperties = viewsWithProperties.map((view) => {
+    const parametersAsType = getTypeForProperties(view.customProperties, false);
+    const name = view.isViewFragment ? getNameForViewFragmentProperties(view.name) : getNameForViewProperties(view.name);
+
+    return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
+  });
+
   const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed }, { substituteNode: substituteNode });
   const result = printer.printList(
     ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
-    ts.factory.createNodeArray([...sourceFile.statements, ...modelsTS, ...datasourcesTS]), resultFile);
+    ts.factory.createNodeArray([...sourceFile.statements, ...modelsTS, ...datasourcesTS, ...viewProperties]), resultFile);
 
   return result;
 }
@@ -155,22 +184,7 @@ export function generateDataserviceSourceFile(models: Array<Model>): string {
     }
 
     if (parameters.length !== 0) {
-      let parametersAsType = parameters.map(parameter => {
-        const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
-        const type = ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(typeString), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null'))])
-
-        return createLiteralTypeProperty(parameter.name, type);
-      });
-
-      const listParameters = parameters.filter(parameter => isAppMakerListType(parameter.type));
-      const initListParameters = listParameters.map(parameter => {
-        const typeString = converAppMakerPropertyTypeToTSType(parameter.type);
-        const type = ts.factory.createFunctionTypeNode(undefined, [], ts.factory.createTypeReferenceNode(typeString));
-
-        return createLiteralTypeProperty(`init${parameter.name.charAt(0).toUpperCase() + parameter.name.slice(1)}`, type);
-      });
-
-      parametersAsType = [...parametersAsType, ...initListParameters];
+      const parametersAsType = getTypeForProperties(parameters);
 
       return ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], name, [], ts.factory.createTypeLiteralNode(parametersAsType));
     }

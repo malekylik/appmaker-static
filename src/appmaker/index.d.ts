@@ -33,27 +33,28 @@ type WidgetCommon<D = null> = {
   getDescendantsByClass(name: string): Array<Widget<D>>;
 
   datasource: Datasource<D>;
+  styleName: string;
 }
 
-declare type LayoutWidget<D = null> = {
+// Represents any widget that can contain other widgets inside. Layout widgets are the only widgets which a data source can be set on.
+declare type LayoutWidget<D = null, P = undefined> = {
+  properties: P;
 } & WidgetCommon<D>;
 
 declare type Panel<D = null> = {
-  styleName: string;
   // TODO: thing about genereting
   children: Record<string, Widget<D> | undefined>;
-  // TODO: think about generating
-  properties: Record<string, string>;
 } & WidgetCommon<D>;
 
-declare type Widget<D = null> = Panel<D> | LayoutWidget<D>;
+declare type Widget<D = null, P = undefined> =
+  Panel<D> | LayoutWidget<D, P>;
 
 declare type User = {
   email: string;
 };
 
 declare const app: {
-  view: Panel;
+  view: Views[keyof Views];
   views: Views;
   viewFragments: ViewFragments;
   datasources: Datasources;
