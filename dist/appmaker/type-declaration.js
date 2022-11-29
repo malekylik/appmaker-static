@@ -20,9 +20,17 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     function createViewProperties(views) {
         return ts.factory.createTypeLiteralNode(views.map(view => {
             const typeArguments = [];
+            console.log(view.name, view.bindings);
+            const dataSourceBinding = (0, generate_utils_1.getDataSourceViewBinding)(view.bindings);
+            const dataSourceName = dataSourceBinding ? (0, generate_utils_1.getDataSourceNameFromBinding)(dataSourceBinding) : undefined;
+            if (dataSourceName) {
+                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(dataSourceName)));
+            }
             if (view.customProperties.length > 0) {
                 const propertiesTypeName = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
-                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+                if (typeArguments.length === 0) {
+                    typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+                }
                 typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
             }
             return ((0, generate_utils_1.createLiteralTypeProperty)(view.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments)));

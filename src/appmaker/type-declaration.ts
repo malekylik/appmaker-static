@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { Model, View } from './app';
 import {
   getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType, getNameForViewProperties, getNameForViewFragmentProperties,
-  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, getTypeForProperties,
+  getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, getTypeForProperties, getDataSourceViewBinding, getDataSourceNameFromBinding,
 } from './generate-utils';
 
 enum TypeToGenerate {
@@ -26,11 +26,20 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
     return ts.factory.createTypeLiteralNode(
       views.map(view => {
         const typeArguments: Array<ts.TypeNode> = [];
+        const dataSourceBinding = getDataSourceViewBinding(view.bindings);
+        const dataSourceName = dataSourceBinding ? getDataSourceNameFromBinding(dataSourceBinding) : undefined;
+
+        if (dataSourceName) {
+          typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(dataSourceName)));
+        }
 
         if (view.customProperties.length > 0) {
           const propertiesTypeName = view.isViewFragment ? getNameForViewFragmentProperties(view.name) : getNameForViewProperties(view.name);
 
-          typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+          if (typeArguments.length === 0) {
+            typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+          }
+
           typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
         }
 

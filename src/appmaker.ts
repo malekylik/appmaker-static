@@ -56,10 +56,19 @@ type ViewClass = 'Panel';
 
 export type ViewChildren = { property: Array<ViewProperty>, key: string, class: ViewClass };
 
+export type ViewBinding = {
+  sourceExpression: '_dataSource' | string;
+  targetExpression: string;
+  targetLiteralExpression: 'string';
+};
+
 export type ChildrenPropery = { name: 'children'; type: string; '#text'?: string; component: Array<ViewChildren> | ViewChildren; };
 export type IsCustomWidgetPropery = { name: 'isCustomWidget'; '#text': string };
 export type WidgetNamePropery = { name: 'name'; '#text': string; };
-export type BindingsPropery = { name: 'bindings'; };
+export type BindingsPropery = {
+  name: 'bindings';
+  binding?: ViewBinding | Array<ViewBinding>;
+};
 export type IsRootPropery = { name: 'isRootComponent'; '#text': boolean; type: 'Boolean'; };
 
 // export type properties = { name: 'properties' };

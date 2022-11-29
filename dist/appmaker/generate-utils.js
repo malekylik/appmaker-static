@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -69,6 +69,12 @@ function getTypeForProperties(properties, withListInit = true) {
     return propertiesAsType;
 }
 exports.getTypeForProperties = getTypeForProperties;
+const getViewBinding = (bindings, sourceExpression) => bindings.find(binding => binding.sourceExpression === sourceExpression);
+exports.getViewBinding = getViewBinding;
+const getDataSourceViewBinding = (bindings) => (0, exports.getViewBinding)(bindings, '_dataSource');
+exports.getDataSourceViewBinding = getDataSourceViewBinding;
+const getDataSourceNameFromBinding = (binding) => binding.targetLiteralExpression.split('.')[1];
+exports.getDataSourceNameFromBinding = getDataSourceNameFromBinding;
 const getNameForDataSourceParams = (modelName, dataSourceName) => `${modelName}_${dataSourceName}_Params`;
 exports.getNameForDataSourceParams = getNameForDataSourceParams;
 const getNameForDataSourceProperties = (modelName, dataSourceName) => `${modelName}_${dataSourceName}_Properties`;

@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { DataSource, DataSourceWithParams, DataSourceWithProperties } from '../appmaker';
+import { DataSource, DataSourceWithParams, DataSourceWithProperties, ViewBinding } from '../appmaker';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -83,6 +83,10 @@ export function getTypeForProperties(properties: Array<{ name: string; type: str
 
   return propertiesAsType;
 }
+
+export const getViewBinding = (bindings: Array<ViewBinding>, sourceExpression: ViewBinding['sourceExpression']): ViewBinding | undefined => bindings.find(binding => binding.sourceExpression === sourceExpression);
+export const getDataSourceViewBinding = (bindings: Array<ViewBinding>): ViewBinding | undefined => getViewBinding(bindings, '_dataSource');
+export const getDataSourceNameFromBinding = (binding: ViewBinding): string | undefined => binding.targetLiteralExpression.split('.')[1];
 
 export const getNameForDataSourceParams = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Params`;
 export const getNameForDataSourceProperties = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Properties`;

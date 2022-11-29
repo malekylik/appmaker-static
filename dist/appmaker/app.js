@@ -59,8 +59,8 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
             const children = getViewChildren(child.property);
             console.log('---- ', name, ' ----');
             console.log('class', childClass);
-            console.log('is root', isRoot);
-            console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
+            // console.log('is root', isRoot);
+            // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
             console.log('bindings', bindings);
             // if (!Array.isArray(children)) {
             //   console.log('warn children is not array', children);
@@ -76,8 +76,8 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
         const bindings = getViewBindings(view.component.property);
         const children = getViewChildren(view.component.property);
         console.log('---- ', name, ' ----');
-        console.log('is root', isRoot);
-        console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
+        // console.log('is root', isRoot);
+        // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
         console.log('bindings', bindings);
         // console.log(view.component.)
         // if (!Array.isArray(children)) {
@@ -92,12 +92,13 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
         if (viewFile.name === 'RiskAssesmentView.xml') {
             // console.log('json for ', viewFile.name);
             // file.component.property.forEach((property => console.log(property)));
-            // traverseView(file);
+            traverseView(file);
             // console.log('custom pro', file.component.customProperties?.property);
             // console.log('component', getViewChildren(file));
             // 'properties'
             // 'bindings'
         }
+        const bindings = getViewBindings(file.component.property);
         const view = {
             name: getViewName(file.component.property),
             key: file.component.key,
@@ -106,6 +107,9 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
             isRootComponent: getIsRootComponent(file.component.property),
             customProperties: file.component.customProperties?.property
                 ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
+                : [],
+            bindings: bindings && bindings.binding
+                ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
                 : [],
         };
         // if (view.name === 'MainView') {

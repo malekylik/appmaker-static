@@ -1,4 +1,4 @@
-import { ChildrenPropery, DataSource, IsCustomWidgetPropery, ModelFile, WidgetNamePropery, ViewFile, ViewProperty, ViewChildren, IsRootPropery, BindingsPropery } from '../appmaker';
+import { ChildrenPropery, DataSource, IsCustomWidgetPropery, ModelFile, WidgetNamePropery, ViewFile, ViewProperty, ViewChildren, IsRootPropery, BindingsPropery, ViewBinding } from '../appmaker';
 import { AppMakerModelFolderContent, AppMakerViewFolderContent } from '../io';
 import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
 import { generateDatasourceSourceFile } from './script-file';
@@ -9,7 +9,7 @@ export interface Model {
 
 export interface View {
   name: string; key: string; class: string; isViewFragment: boolean; isRootComponent: boolean;
-  customProperties: Array<{ name: string; type: string }>;
+  customProperties: Array<{ name: string; type: string }>; bindings: Array<ViewBinding>;
 }
 
 const getViewProperty = (properties: Array<ViewProperty>, propertyName: ViewProperty['name']): ViewProperty | undefined => properties.find(property => property.name === propertyName);
@@ -80,8 +80,8 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
   
       console.log('---- ', name, ' ----');
       console.log('class', childClass);
-      console.log('is root', isRoot);
-      console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
+      // console.log('is root', isRoot);
+      // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
       console.log('bindings', bindings);
 
       // if (!Array.isArray(children)) {
@@ -102,8 +102,8 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
     const children = getViewChildren(view.component.property);
 
     console.log('---- ', name, ' ----');
-    console.log('is root', isRoot);
-    console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
+    // console.log('is root', isRoot);
+    // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
     console.log('bindings', bindings);
     // console.log(view.component.)
 
@@ -123,13 +123,15 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
       // console.log('json for ', viewFile.name);
       // file.component.property.forEach((property => console.log(property)));
 
-      // traverseView(file);
+      traverseView(file);
       // console.log('custom pro', file.component.customProperties?.property);
       // console.log('component', getViewChildren(file));
 
       // 'properties'
       // 'bindings'
     }
+
+    const bindings = getViewBindings(file.component.property);
 
     const view: View = {
       name: getViewName(file.component.property),
@@ -140,6 +142,9 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
       customProperties: file.component.customProperties?.property
         ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
         : [],
+      bindings: bindings && bindings.binding
+      ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
+      : [],
     };
 
     // if (view.name === 'MainView') {
