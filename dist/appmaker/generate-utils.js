@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -79,6 +79,10 @@ const getNameForDataSourceParams = (modelName, dataSourceName) => `${modelName}_
 exports.getNameForDataSourceParams = getNameForDataSourceParams;
 const getNameForDataSourceProperties = (modelName, dataSourceName) => `${modelName}_${dataSourceName}_Properties`;
 exports.getNameForDataSourceProperties = getNameForDataSourceProperties;
+const getNameForView = (viewName) => `${viewName}_View`;
+exports.getNameForView = getNameForView;
+const getNameForViewFragment = (viewName) => `${viewName}_ViewFragment`;
+exports.getNameForViewFragment = getNameForViewFragment;
 const getNameForViewProperties = (viewName) => `${viewName}_View_Custom_Properties`;
 exports.getNameForViewProperties = getNameForViewProperties;
 const getNameForViewFragmentProperties = (viewName) => `${viewName}_ViewFragment_Custom_Properties`;

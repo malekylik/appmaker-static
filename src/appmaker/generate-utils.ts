@@ -90,6 +90,8 @@ export const getDataSourceNameFromBinding = (binding: ViewBinding): string | und
 
 export const getNameForDataSourceParams = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Params`;
 export const getNameForDataSourceProperties = (modelName: string, dataSourceName: string): string => `${modelName}_${dataSourceName}_Properties`;
+export const getNameForView = (viewName: string): string => `${viewName}_View`;
+export const getNameForViewFragment = (viewName: string): string => `${viewName}_ViewFragment`;
 export const getNameForViewProperties = (viewName: string): string => `${viewName}_View_Custom_Properties`;
 export const getNameForViewFragmentProperties = (viewName: string): string => `${viewName}_ViewFragment_Custom_Properties`;
 

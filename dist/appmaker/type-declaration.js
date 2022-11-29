@@ -17,24 +17,21 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     if (!sourceFile) {
         throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
     }
-    function createViewProperties(views) {
-        return ts.factory.createTypeLiteralNode(views.map(view => {
-            const typeArguments = [];
-            console.log(view.name, view.bindings);
-            const dataSourceBinding = (0, generate_utils_1.getDataSourceViewBinding)(view.bindings);
-            const dataSourceName = dataSourceBinding ? (0, generate_utils_1.getDataSourceNameFromBinding)(dataSourceBinding) : undefined;
-            if (dataSourceName) {
-                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(dataSourceName)));
+    function createViewProperty(view) {
+        const typeArguments = [];
+        const dataSourceBinding = (0, generate_utils_1.getDataSourceViewBinding)(view.bindings);
+        const dataSourceName = dataSourceBinding ? (0, generate_utils_1.getDataSourceNameFromBinding)(dataSourceBinding) : undefined;
+        if (dataSourceName) {
+            typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(dataSourceName)));
+        }
+        if (view.customProperties.length > 0) {
+            const propertiesTypeName = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
+            if (typeArguments.length === 0) {
+                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
             }
-            if (view.customProperties.length > 0) {
-                const propertiesTypeName = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
-                if (typeArguments.length === 0) {
-                    typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
-                }
-                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
-            }
-            return ((0, generate_utils_1.createLiteralTypeProperty)(view.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments)));
-        }));
+            typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
+        }
+        return (ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments));
     }
     function createDatasourceProperties(models) {
         return ts.factory.createTypeLiteralNode(models.flatMap(model => model.dataSources.map((datasource) => {
@@ -57,11 +54,13 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         if (ts.isTypeAliasDeclaration(node)) {
             const typeName = node.name.escapedText;
             if (typeName === TypeToGenerate.Views) {
-                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], createViewProperties(views));
+                const type = ts.factory.createTypeLiteralNode(views.map(view => (0, generate_utils_1.createLiteralTypeProperty)(view.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.getNameForView)(view.name))))));
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], type);
                 return newNode;
             }
             if (typeName === TypeToGenerate.ViewFragments) {
-                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], createViewProperties(viewFragments));
+                const type = ts.factory.createTypeLiteralNode(viewFragments.map(viewFragment => (0, generate_utils_1.createLiteralTypeProperty)(viewFragment.name, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.getNameForViewFragment)(viewFragment.name))))));
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], type);
                 return newNode;
             }
             if (typeName === TypeToGenerate.Datasources) {
@@ -94,6 +93,12 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
         return 0;
     })
         .map(datasource => ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], datasource.name, [], ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(datasource.ModelName)))); // create ts type for each datasource
+    const viewTypes = [
+        ...views,
+        ...viewFragments
+    ].map((view) => {
+        return (ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], view.isViewFragment ? (0, generate_utils_1.getNameForViewFragment)(view.name) : (0, generate_utils_1.getNameForView)(view.name), [], createViewProperty(view)));
+    });
     const viewsWithProperties = [
         ...views.filter(view => view.customProperties.length > 0),
         ...viewFragments.filter(viewFragment => viewFragment.customProperties.length > 0)
@@ -105,7 +110,7 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
     });
     const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
     const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed }, { substituteNode: substituteNode });
-    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements, ...modelsTS, ...datasourcesTS, ...viewProperties]), resultFile);
+    const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray([...sourceFile.statements, ...viewTypes, ...modelsTS, ...datasourcesTS, ...viewProperties]), resultFile);
     return result;
 }
 exports.generateTypeDeclarationFile = generateTypeDeclarationFile;
