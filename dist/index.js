@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+// import { getScriptExports } from './appmaker/generate-utils';
 const command_line_1 = require("./command-line");
 const handlers_1 = require("./handlers");
 async function run() {
@@ -24,3 +25,20 @@ async function run() {
     }
 }
 run();
+// var b = `
+//   var res = executeSQL(sql, callback);
+//   return res;
+// }
+// exports.getFilteredProcessWithRAForRiskAssessment.as   = getFilteredProcessWithRAForRiskAssessment;
+// exports.getFilteredProcessWithRAForRiskAssessmentHistory = getFilteredProcessWithRAForRiskAssessmentHistory;
+// exports.getRCOProcesses = getRCOProcesses;
+// exports.getFiltersForLastRADate = getFiltersForLastRADate;
+// exports.getFiltersForNextRADate = getFiltersForNextRADate;
+// exports.getFiltersForHCProcessIdField = getFiltersForHCProcessIdField;
+// exports.getFiltersForRALeadField = getFiltersForRALeadField;
+// exports.getFiltersForGPOField = getFiltersForGPOField;
+// exports.getFiltersForGPMField = getFiltersForGPMField;
+// exports.getFiltersForRCOTowerField = getFiltersForRCOTowerField;
+// exports.getFiltersForRCOSubTowerField = getFiltersForRCOSubTowerField;
+// exports.getFiltersForProcessIDField = getFiltersForProcessIDField;`
+// console.log(getScriptExports(b));

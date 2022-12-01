@@ -62,7 +62,7 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
 
   const app = new App();
 
-  initAppMakerApp(app, modelsFiles, viewsFiles);
+  initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles);
 
   const pathToGenerateJSProjectDir = outDir;
 
@@ -287,7 +287,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
         ]);
       
       
-        initAppMakerApp(_app, modelsFiles, viewsFiles);
+        initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles);
       
         const pathToGenerateJSProjectDir = options.outDir;
       

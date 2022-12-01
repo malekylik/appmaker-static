@@ -9,14 +9,18 @@ var TypeToGenerate;
     TypeToGenerate["Views"] = "Views";
     TypeToGenerate["ViewFragments"] = "ViewFragments";
     TypeToGenerate["Datasources"] = "Datasources";
+    TypeToGenerate["ServerScriptNames"] = "ServerScriptNames";
+    TypeToGenerate["ServerScriptExportedNamesMap"] = "ServerScriptExportedNamesMap";
 })(TypeToGenerate || (TypeToGenerate = {}));
-function generateTypeDeclarationFile(views, viewFragments, models) {
+function generateTypeDeclarationFile(views, viewFragments, models, scripts) {
     const pathToDFile = path.resolve(__dirname, '../../src/appmaker/index.d.ts');
     let program = ts.createProgram([pathToDFile], { allowJs: true });
     const sourceFile = program.getSourceFile(pathToDFile);
     if (!sourceFile) {
         throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
     }
+    const serverScriptsWithExports = scripts
+        .filter(script => script.type === 'SERVER' && script.code !== null && script.exports.length > 0);
     function createViewProperty(view) {
         const typeArguments = [];
         const dataSourceBinding = (0, generate_utils_1.getDataSourceViewBinding)(view.bindings);
@@ -66,6 +70,16 @@ function generateTypeDeclarationFile(views, viewFragments, models) {
             if (typeName === TypeToGenerate.Datasources) {
                 const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], createDatasourceProperties(models));
                 return newNode;
+            }
+            if (typeName === TypeToGenerate.ServerScriptNames) {
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], ts.factory.createUnionTypeNode(serverScriptsWithExports
+                    .map(script => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(script.name)))));
+                return newNode;
+            }
+            if (typeName === TypeToGenerate.ServerScriptExportedNamesMap) {
+                const type = ts.factory.createTypeLiteralNode(serverScriptsWithExports.map((script) => (0, generate_utils_1.createLiteralTypeProperty)(script.name, ts.factory.createUnionTypeNode(script.exports.map(_export => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(_export)))))));
+                const generatedNode = ts.factory.createTypeAliasDeclaration(node.modifiers, node.name, undefined, type);
+                return generatedNode;
             }
         }
         return node;

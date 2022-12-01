@@ -84,6 +84,35 @@ export function getTypeForProperties(properties: Array<{ name: string; type: str
   return propertiesAsType;
 }
 
+export function getScriptExports(code: string): Array<string> {
+  const names: Array<string> = [];
+  const match = code.match(/exports.[\w.]+\s*=/g) ?? [];
+
+  for (let i = 0; i < match.length; i++) {
+    const matchRes = match[i] as string;
+    let j = matchRes.length - 1;
+    let end = -1;
+
+    while (j >= 0) {
+      if (end === -1) {
+        if (matchRes[j] !== ' ' && matchRes[j] !== '=') {
+          end = j;
+          break;
+        }
+      }
+
+      j--;
+    }
+    const expNames = matchRes.slice(0, end + 1).split('.').slice(1, matchRes.length);
+
+    if (expNames.length > 0) {
+      names.push(expNames.join('.'));
+    }
+  }
+
+  return names;
+}
+
 export const getViewBinding = (bindings: Array<ViewBinding>, sourceExpression: ViewBinding['sourceExpression']): ViewBinding | undefined => bindings.find(binding => binding.sourceExpression === sourceExpression);
 export const getDataSourceViewBinding = (bindings: Array<ViewBinding>): ViewBinding | undefined => getViewBinding(bindings, '_dataSource');
 export const getDataSourceNameFromBinding = (binding: ViewBinding): string | undefined => binding.targetLiteralExpression.split('.')[1];

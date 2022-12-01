@@ -1,7 +1,8 @@
 import { ChildrenPropery, DataSource, IsCustomWidgetPropery, ModelFile, WidgetNamePropery, ViewFile, ViewProperty, ViewChildren, IsRootPropery, BindingsPropery, ViewBinding } from '../appmaker';
-import { AppMakerModelFolderContent, AppMakerViewFolderContent } from '../io';
+import { AppMakerModelFolderContent, AppMakerScriptFolderContent, AppMakerViewFolderContent } from '../io';
 import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
 import { generateDatasourceSourceFile } from './script-file';
+import { getScriptExports } from './generate-utils';
 
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
@@ -10,6 +11,11 @@ export interface Model {
 export interface View {
   name: string; key: string; class: string; isViewFragment: boolean; isRootComponent: boolean;
   customProperties: Array<{ name: string; type: string }>; bindings: Array<ViewBinding>;
+}
+
+export interface Script {
+  name: string; type: 'SERVER' | 'CLIENT'; code: string | null;
+  exports: Array<string>;
 }
 
 const getViewProperty = (properties: Array<ViewProperty>, propertyName: ViewProperty['name']): ViewProperty | undefined => properties.find(property => property.name === propertyName);
@@ -22,6 +28,7 @@ const getViewBindings = (properties: Array<ViewProperty>) => (getViewProperty(pr
 export class App {
   private views: Array<View> = [];
   private models: Array<Model> = [];
+  private scripts: Array<Script> = [];
 
   addView(view: View) {
     this.views.push(view);
@@ -31,11 +38,15 @@ export class App {
     this.models.push(model);
   }
 
+  addScript(script: Script) {
+    this.scripts.push(script);
+  }
+
   generateAppDeclarationFile(): string {
     const views = this.views.filter(view => !view.isViewFragment);
     const viewFragments = this.views.filter(view => view.isViewFragment);
 
-    return generateTypeDeclarationFile(views, viewFragments, this.models);
+    return generateTypeDeclarationFile(views, viewFragments, this.models, this.scripts);
   }
 
   generateDataserviceSourceFile(): string {
@@ -57,7 +68,7 @@ function parseModelField(fields: ModelFile['model']['field']): Model['fields'] {
   });
 }
 
-export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent): void {
+export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent, scriptsFiles: AppMakerScriptFolderContent): void {
   modelsFiles.forEach((modelFile) => {
     const file = modelFile.file;
 
@@ -152,5 +163,18 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
     // }
 
     app.addView(view);
+  });
+
+  scriptsFiles.forEach((scriptFile) => {
+    const file = scriptFile.file;
+
+    const script: Script = {
+      name: file.script.name,
+      type: file.script.type,
+      code: file.script['#text'] ?? null,
+      exports: file.script['#text'] ? getScriptExports(file.script['#text']) : [],
+    };
+
+    app.addScript(script);
   });
 }

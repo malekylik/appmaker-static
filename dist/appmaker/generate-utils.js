@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -69,6 +69,30 @@ function getTypeForProperties(properties, withListInit = true) {
     return propertiesAsType;
 }
 exports.getTypeForProperties = getTypeForProperties;
+function getScriptExports(code) {
+    const names = [];
+    const match = code.match(/exports.[\w.]+\s*=/g) ?? [];
+    for (let i = 0; i < match.length; i++) {
+        const matchRes = match[i];
+        let j = matchRes.length - 1;
+        let end = -1;
+        while (j >= 0) {
+            if (end === -1) {
+                if (matchRes[j] !== ' ' && matchRes[j] !== '=') {
+                    end = j;
+                    break;
+                }
+            }
+            j--;
+        }
+        const expNames = matchRes.slice(0, end + 1).split('.').slice(1, matchRes.length);
+        if (expNames.length > 0) {
+            names.push(expNames.join('.'));
+        }
+    }
+    return names;
+}
+exports.getScriptExports = getScriptExports;
 const getViewBinding = (bindings, sourceExpression) => bindings.find(binding => binding.sourceExpression === sourceExpression);
 exports.getViewBinding = getViewBinding;
 const getDataSourceViewBinding = (bindings) => (0, exports.getViewBinding)(bindings, '_dataSource');

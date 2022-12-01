@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.initAppMakerApp = exports.App = void 0;
 const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
+const generate_utils_1 = require("./generate-utils");
 const getViewProperty = (properties, propertyName) => properties.find(property => property.name === propertyName);
 const getViewName = (properties) => getViewProperty(properties, 'name')?.['#text'] ?? '';
 const getIsViewFragment = (properties) => !!getViewProperty(properties, 'isCustomWidget')?.['#text'];
@@ -13,6 +14,7 @@ class App {
     constructor() {
         this.views = [];
         this.models = [];
+        this.scripts = [];
     }
     addView(view) {
         this.views.push(view);
@@ -20,10 +22,13 @@ class App {
     addModel(model) {
         this.models.push(model);
     }
+    addScript(script) {
+        this.scripts.push(script);
+    }
     generateAppDeclarationFile() {
         const views = this.views.filter(view => !view.isViewFragment);
         const viewFragments = this.views.filter(view => view.isViewFragment);
-        return (0, type_declaration_1.generateTypeDeclarationFile)(views, viewFragments, this.models);
+        return (0, type_declaration_1.generateTypeDeclarationFile)(views, viewFragments, this.models, this.scripts);
     }
     generateDataserviceSourceFile() {
         return (0, type_declaration_1.generateDataserviceSourceFile)(this.models);
@@ -40,7 +45,7 @@ function parseModelField(fields) {
         return ({ ...field, required: strToBool(field.required), autoIncrement: strToBool(field.autoIncrement) });
     });
 }
-function initAppMakerApp(app, modelsFiles, viewsFiles) {
+function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
     modelsFiles.forEach((modelFile) => {
         const file = modelFile.file;
         const model = {
@@ -116,6 +121,16 @@ function initAppMakerApp(app, modelsFiles, viewsFiles) {
         //   console.log('main props', view.customProperties, file.component.customProperties);
         // }
         app.addView(view);
+    });
+    scriptsFiles.forEach((scriptFile) => {
+        const file = scriptFile.file;
+        const script = {
+            name: file.script.name,
+            type: file.script.type,
+            code: file.script['#text'] ?? null,
+            exports: file.script['#text'] ? (0, generate_utils_1.getScriptExports)(file.script['#text']) : [],
+        };
+        app.addScript(script);
     });
 }
 exports.initAppMakerApp = initAppMakerApp;

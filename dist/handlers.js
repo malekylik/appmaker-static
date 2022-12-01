@@ -51,7 +51,7 @@ async function validateUnzipProject(passedPath, outDir) {
         (0, io_1.readAppMakerViews)(passedPath, viewsNames),
     ]);
     const app = new app_1.App();
-    (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles);
+    (0, app_1.initAppMakerApp)(app, modelsFiles, viewsFiles, scriptsFiles);
     const pathToGenerateJSProjectDir = outDir;
     const generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
     if (generatedFiles.length > 0) {
@@ -234,7 +234,7 @@ async function handleInteractiveApplicationMode(options) {
                     (0, io_1.readAppMakerModels)(pathToProject, modelsNames),
                     (0, io_1.readAppMakerViews)(pathToProject, viewsNames),
                 ]);
-                (0, app_1.initAppMakerApp)(_app, modelsFiles, viewsFiles);
+                (0, app_1.initAppMakerApp)(_app, modelsFiles, viewsFiles, scriptsFiles);
                 const pathToGenerateJSProjectDir = options.outDir;
                 generatedFiles = await (0, io_1.generateJSProjectForAppMaker)(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, _app);
             }

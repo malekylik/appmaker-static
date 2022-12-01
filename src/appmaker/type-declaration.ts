@@ -1,6 +1,6 @@
 import * as ts from 'typescript';
 import * as path from 'path';
-import type { Model, View } from './app';
+import type { Model, Script, View } from './app';
 import {
   getModelName, createLiteralTypeProperty, converAppMakerPropertyTypeToTSType, getNameForViewProperties, getNameForViewFragmentProperties,
   getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, getTypeForProperties, getDataSourceViewBinding, getDataSourceNameFromBinding, getNameForViewFragment, getNameForView,
@@ -10,9 +10,11 @@ enum TypeToGenerate {
   Views = 'Views',
   ViewFragments = 'ViewFragments',
   Datasources = 'Datasources',
+  ServerScriptNames = 'ServerScriptNames',
+  ServerScriptExportedNamesMap = 'ServerScriptExportedNamesMap',
 }
 
-export function generateTypeDeclarationFile(views: Array<View>, viewFragments: Array<View>, models: Array<Model>): string {
+export function generateTypeDeclarationFile(views: Array<View>, viewFragments: Array<View>, models: Array<Model>, scripts: Array<Script>): string {
   const pathToDFile = path.resolve(__dirname, '../../src/appmaker/index.d.ts');
 
   let program = ts.createProgram([pathToDFile], { allowJs: true });
@@ -21,6 +23,9 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
   if (!sourceFile) {
     throw new Error(`Couldn't find template for declaration file at ${pathToDFile}`);
   }
+
+  const serverScriptsWithExports = scripts
+    .filter(script => script.type === 'SERVER' && script.code !== null && script.exports.length > 0);
 
   function createViewProperty(view: View): ts.TypeReferenceNode {
     const typeArguments: Array<ts.TypeNode> = [];
@@ -118,6 +123,29 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
         );
   
         return newNode;
+      }
+
+      if (typeName === TypeToGenerate.ServerScriptNames) {
+        const newNode = ts.factory.createTypeAliasDeclaration(
+          [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
+          ts.factory.createUnionTypeNode(
+            serverScriptsWithExports
+            .map(script => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(script.name)))
+          ),
+        );
+  
+        return newNode;
+      }
+
+      if (typeName === TypeToGenerate.ServerScriptExportedNamesMap) {
+        const type = ts.factory.createTypeLiteralNode(serverScriptsWithExports.map(
+          (script) => createLiteralTypeProperty(script.name,
+                  ts.factory.createUnionTypeNode(script.exports.map(_export => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(_export)))
+                ))));
+
+        const generatedNode = ts.factory.createTypeAliasDeclaration(node.modifiers, node.name, undefined, type);
+
+        return generatedNode;
       }
     }
   

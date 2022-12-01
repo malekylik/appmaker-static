@@ -61,7 +61,7 @@ declare const app: {
   sanitizer: { sanitizeUrl(url: string): string;  };
   user: User;
 
-  executeRemoteScript<A extends Array<unknown>, R>(scriptName: string, functionName: string, args: A, callback: (result: R) => void): void;
+  executeRemoteScript<A extends Array<unknown>, R, S extends ServerScriptNames>(scriptName: S, functionName: ServerScriptExportedNamesMap[S], args: A, callback: ((result: R) => void) | { success: (result: R) => void; failure: (err: Error) => void;): void;
 
   showDialog(widget: Widget): void;
   closeDialog(): void;
@@ -74,3 +74,9 @@ declare type Views = /** generated */ unknown;
 declare type ViewFragments = /** generated */ unknown;
 
 declare type Datasources = /** generated */ unknown;
+
+declare type ServerScriptNames = /** generated */ unknown;
+
+declare type ServerScriptExportedNamesMap = {
+  /** generated */
+}
