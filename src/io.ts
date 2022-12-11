@@ -185,7 +185,8 @@ export async function generateJSProjectForAppMaker(
 
   const pathToTypes = `${pathToProject}/type`;
   const files = tsFilesToCheck.concat([
-    `${pathToProject}/__models.js`, `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`,
+    `${pathToProject}/__models.js`, `${pathToProject}/__events.js`,
+    `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`,
   ]);
   const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
   await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
@@ -198,6 +199,7 @@ export async function generateJSProjectForAppMaker(
   await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
   await writeFile(`${pathToTypes}/dataService.d.ts`, app.generateDataserviceSourceFile());
   await writeFile(`${pathToProject}/__models.js`, app.generateDatasourceSourceFile());
+  await writeFile(`${pathToProject}/__events.js`, app.generateWidgetEventsSourceFile());
 
   return files;
 }

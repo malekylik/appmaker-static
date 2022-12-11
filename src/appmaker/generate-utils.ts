@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { DataSource, DataSourceWithParams, DataSourceWithProperties, ViewBinding } from '../appmaker';
+import { ActionPropery, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery } from '../appmaker';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -126,3 +126,53 @@ export const getNameForViewFragmentProperties = (viewName: string): string => `$
 
 export const isDataSourceContainsParams = (datasource: DataSource): datasource is (DataSource & DataSourceWithParams) => 'parameters' in datasource;
 export const isDataSourceContainsProperties = (datasource: DataSource): datasource is (DataSource & DataSourceWithProperties) => 'customProperties' in datasource;
+
+export const getViewProperty = (properties: Array<ViewProperty>, propertyName: ViewProperty['name']): ViewProperty | undefined => properties.find(property => property.name === propertyName);
+export const getViewName = (properties: Array<ViewProperty>): string => (getViewProperty(properties, 'name') as WidgetNamePropery | undefined)?.['#text'] ?? '';
+export const getIsViewFragment = (properties: Array<ViewProperty>): boolean => !!(getViewProperty(properties, 'isCustomWidget') as IsCustomWidgetPropery | undefined)?.['#text'];
+export const getViewChildren = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'children') as ChildrenPropery | undefined)?.['component'];
+export const getIsRootComponent = (properties: Array<ViewProperty>): boolean => (getViewProperty(properties, 'isRootComponent') as IsRootPropery | undefined)?.['#text'] ?? false;
+export const getViewBindings = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'bindings') as BindingsPropery | undefined);
+// TODO: check if it applies for every widget
+export const getOnValidate = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onValidate') as ActionPropery | undefined);
+export const getOnChange = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onChange') as ActionPropery | undefined);
+export const getOnValuesChange = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onValuesChange') as ActionPropery | undefined);
+export const getOnValueEdit = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onValueEdit') as ActionPropery | undefined);
+export const getOnClick = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'action') as ActionPropery | undefined);
+export const getOnLoad = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onLoad') as ActionPropery | undefined);
+export const getOnDataLoad = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onDataLoad') as ActionPropery | undefined);
+export const getOnUnload = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onUnload') as ActionPropery | undefined);
+
+export type TraverseCallback = (widgetClass: WidgetClass, propeties: Array<ViewProperty>) => void;
+
+export function traverseViewChildren(children: Array<ViewChildren>, callback: { onEnter?: TraverseCallback; onExit?: TraverseCallback } = {}): void {
+  children.forEach((child) => {
+    callback.onEnter = callback.onEnter ?? (() => {});
+    callback.onExit = callback.onExit ?? (() => {});
+
+    const children = getViewChildren(child.property);
+
+    callback.onEnter(child.class, child.property);
+
+    if (children) {
+      traverseViewChildren(Array.isArray(children) ? children : [children], callback); 
+    }
+
+    callback.onExit(child.class, child.property);
+  });
+}
+
+export function traverseView(view: ViewFile, callback: { onEnter?: TraverseCallback; onExit?: TraverseCallback } = {}): void {
+  callback.onEnter = callback.onEnter ?? (() => {});
+  callback.onExit = callback.onExit ?? (() => {});
+
+  const children = getViewChildren(view.component.property);
+
+  callback.onEnter(view.component.class, view.component.property);
+
+  if (children) {
+    traverseViewChildren(Array.isArray(children) ? children : [children], callback);
+  }
+
+  callback.onExit(view.component.class, view.component.property);
+}

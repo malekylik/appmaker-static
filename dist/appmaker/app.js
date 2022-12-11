@@ -4,12 +4,6 @@ exports.initAppMakerApp = exports.App = void 0;
 const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
-const getViewProperty = (properties, propertyName) => properties.find(property => property.name === propertyName);
-const getViewName = (properties) => getViewProperty(properties, 'name')?.['#text'] ?? '';
-const getIsViewFragment = (properties) => !!getViewProperty(properties, 'isCustomWidget')?.['#text'];
-const getViewChildren = (properties) => getViewProperty(properties, 'children')?.['component'];
-const getIsRootComponent = (properties) => getViewProperty(properties, 'isRootComponent')?.['#text'] ?? false;
-const getViewBindings = (properties) => getViewProperty(properties, 'bindings');
 class App {
     constructor() {
         this.views = [];
@@ -36,6 +30,9 @@ class App {
     generateDatasourceSourceFile() {
         return (0, script_file_1.generateDatasourceSourceFile)(this.models);
     }
+    generateWidgetEventsSourceFile() {
+        return (0, script_file_1.generateWidgetEventsSourceFile)(this.views);
+    }
 }
 exports.App = App;
 function parseModelField(fields) {
@@ -55,71 +52,23 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
         };
         app.addModel(model);
     });
-    function traverseViewChildren(children) {
-        children.forEach((child) => {
-            const name = getViewName(child.property);
-            const isRoot = getIsRootComponent(child.property);
-            const bindings = getViewBindings(child.property);
-            const childClass = child.class;
-            const children = getViewChildren(child.property);
-            console.log('---- ', name, ' ----');
-            console.log('class', childClass);
-            // console.log('is root', isRoot);
-            // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
-            console.log('bindings', bindings);
-            // if (!Array.isArray(children)) {
-            //   console.log('warn children is not array', children);
-            // }
-            if (children) {
-                traverseViewChildren(Array.isArray(children) ? children : [children]);
-            }
-        });
-    }
-    function traverseView(view) {
-        const name = getViewName(view.component.property);
-        const isRoot = getIsRootComponent(view.component.property);
-        const bindings = getViewBindings(view.component.property);
-        const children = getViewChildren(view.component.property);
-        console.log('---- ', name, ' ----');
-        // console.log('is root', isRoot);
-        // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
-        console.log('bindings', bindings);
-        // console.log(view.component.)
-        // if (!Array.isArray(children)) {
-        //   console.log('warn children is not array', children);
-        // }
-        if (children) {
-            traverseViewChildren(Array.isArray(children) ? children : [children]);
-        }
-    }
     viewsFiles.forEach((viewFile) => {
         const file = viewFile.file;
-        if (viewFile.name === 'RiskAssesmentView.xml') {
-            // console.log('json for ', viewFile.name);
-            // file.component.property.forEach((property => console.log(property)));
-            traverseView(file);
-            // console.log('custom pro', file.component.customProperties?.property);
-            // console.log('component', getViewChildren(file));
-            // 'properties'
-            // 'bindings'
-        }
-        const bindings = getViewBindings(file.component.property);
+        const bindings = (0, generate_utils_1.getViewBindings)(file.component.property);
         const view = {
-            name: getViewName(file.component.property),
+            name: (0, generate_utils_1.getViewName)(file.component.property),
             key: file.component.key,
             class: file.component.class,
-            isViewFragment: getIsViewFragment(file.component.property),
-            isRootComponent: getIsRootComponent(file.component.property),
+            isViewFragment: (0, generate_utils_1.getIsViewFragment)(file.component.property),
+            isRootComponent: (0, generate_utils_1.getIsRootComponent)(file.component.property),
             customProperties: file.component.customProperties?.property
                 ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
                 : [],
             bindings: bindings && bindings.binding
                 ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
                 : [],
+            file: file,
         };
-        // if (view.name === 'MainView') {
-        //   console.log('main props', view.customProperties, file.component.customProperties);
-        // }
         app.addView(view);
     });
     scriptsFiles.forEach((scriptFile) => {

@@ -10,7 +10,6 @@ export interface ScriptFile {
 export type DataSourceParam = { name: string; type: string; isNull: 'true' | 'false'; };
 export type DataSourceProperty = { name: string; type: string; };
 
-
 export type DataSourceWithParams = {
   parameters: { property: Array<DataSourceParam> | DataSourceParam };
 }
@@ -52,9 +51,16 @@ export interface ModelFile {
 // <property name="onDataLoad" type="String" isNull="true"/>
 // <property name="action" type="String" isNull="true"/>
 
-type ViewClass = 'Panel';
+export type WidgetClass =
+    'Panel'
+  | 'SimpleLabel'
+  | 'Dropdown'
+  | 'SimpleButton'
+  | 'CheckBoxComponent'
+  | 'MultiSelectBox'
+  | `CustomComponent_${string}`;
 
-export type ViewChildren = { property: Array<ViewProperty>, key: string, class: ViewClass };
+export type ViewChildren = { property: Array<ViewProperty>, key: string, class: WidgetClass };
 
 export type ViewBinding = {
   sourceExpression: '_dataSource' | string;
@@ -70,6 +76,8 @@ export type BindingsPropery = {
   binding?: ViewBinding | Array<ViewBinding>;
 };
 export type IsRootPropery = { name: 'isRootComponent'; '#text': boolean; type: 'Boolean'; };
+export type ActionType = 'onLoad' | 'onUnload' | 'onDataLoad' | 'action' | 'onValidate' | 'onChange' | 'onValueEdit' | 'onValuesChange';
+export type ActionPropery = { name: ActionType; '#text'?: string; isNull: true; } | { name: ActionType; '#text': string; isNull?: true; };
 
 // export type properties = { name: 'properties' };
 // customProperties
@@ -79,14 +87,15 @@ export type ViewProperty =
   | IsCustomWidgetPropery
   | WidgetNamePropery
   | BindingsPropery
-  | IsRootPropery;
+  | IsRootPropery
+  | ActionPropery;
 
 export interface ViewFile {
   component: {
     property: Array<ViewProperty>;
     key: string;
     permission: unknown;
-    class: string;
+    class: WidgetClass;
     customProperties?: {
       property: Array<
         {

@@ -7,7 +7,8 @@ declare type ModelNamesToModelTypeMap = {
 // Passed by AppMaker to model scripts
 declare interface RecordQuery <T extends Record<string, unknown> = Record<string, unknown>> {
   model: ModelNames;
-  limit?: number;
+  limit: number | null;
+  offset: number;
   parameters: T;
 }
 

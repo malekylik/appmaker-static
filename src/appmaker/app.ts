@@ -1,8 +1,8 @@
-import { ChildrenPropery, DataSource, IsCustomWidgetPropery, ModelFile, WidgetNamePropery, ViewFile, ViewProperty, ViewChildren, IsRootPropery, BindingsPropery, ViewBinding } from '../appmaker';
+import { DataSource, ModelFile, ViewBinding, ViewFile } from '../appmaker';
 import { AppMakerModelFolderContent, AppMakerScriptFolderContent, AppMakerViewFolderContent } from '../io';
 import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
-import { generateDatasourceSourceFile } from './script-file';
-import { getScriptExports } from './generate-utils';
+import { generateDatasourceSourceFile, generateWidgetEventsSourceFile } from './script-file';
+import { getIsRootComponent, getIsViewFragment, getScriptExports, getViewBindings, getViewName } from './generate-utils';
 
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
@@ -11,19 +11,13 @@ export interface Model {
 export interface View {
   name: string; key: string; class: string; isViewFragment: boolean; isRootComponent: boolean;
   customProperties: Array<{ name: string; type: string }>; bindings: Array<ViewBinding>;
+  file: ViewFile;
 }
 
 export interface Script {
   name: string; type: 'SERVER' | 'CLIENT'; code: string | null;
   exports: Array<string>;
 }
-
-const getViewProperty = (properties: Array<ViewProperty>, propertyName: ViewProperty['name']): ViewProperty | undefined => properties.find(property => property.name === propertyName);
-const getViewName = (properties: Array<ViewProperty>): string => (getViewProperty(properties, 'name') as WidgetNamePropery | undefined)?.['#text'] ?? '';
-const getIsViewFragment = (properties: Array<ViewProperty>): boolean => !!(getViewProperty(properties, 'isCustomWidget') as IsCustomWidgetPropery | undefined)?.['#text'];
-const getViewChildren = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'children') as ChildrenPropery | undefined)?.['component'];
-const getIsRootComponent = (properties: Array<ViewProperty>): boolean => (getViewProperty(properties, 'isRootComponent') as IsRootPropery | undefined)?.['#text'] ?? false;
-const getViewBindings = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'bindings') as BindingsPropery | undefined);
 
 export class App {
   private views: Array<View> = [];
@@ -56,6 +50,10 @@ export class App {
   generateDatasourceSourceFile(): string {
     return generateDatasourceSourceFile(this.models);
   }
+
+  generateWidgetEventsSourceFile(): string {
+    return generateWidgetEventsSourceFile(this.views);
+  }
 }
 
 function parseModelField(fields: ModelFile['model']['field']): Model['fields'] {
@@ -81,66 +79,8 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
     app.addModel(model);
   });
 
-  function traverseViewChildren(children: Array<ViewChildren>): void {
-    children.forEach((child) => {
-      const name = getViewName(child.property);
-      const isRoot = getIsRootComponent(child.property);
-      const bindings = getViewBindings(child.property);
-      const childClass = child.class;
-      const children = getViewChildren(child.property);
-  
-      console.log('---- ', name, ' ----');
-      console.log('class', childClass);
-      // console.log('is root', isRoot);
-      // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
-      console.log('bindings', bindings);
-
-      // if (!Array.isArray(children)) {
-      //   console.log('warn children is not array', children);
-      // }
-  
-      if (children) {
-        traverseViewChildren(Array.isArray(children) ? children : [children]); 
-      }
-    });
-  }
-
-  function traverseView(view: ViewFile): void {
-    const name = getViewName(view.component.property);
-    const isRoot = getIsRootComponent(view.component.property);
-    const bindings = getViewBindings(view.component.property);
-
-    const children = getViewChildren(view.component.property);
-
-    console.log('---- ', name, ' ----');
-    // console.log('is root', isRoot);
-    // console.log('children count', children ? (Array.isArray(children) ? children.length : 1) : 0);
-    console.log('bindings', bindings);
-    // console.log(view.component.)
-
-    // if (!Array.isArray(children)) {
-    //   console.log('warn children is not array', children);
-    // }
-
-    if (children) {
-      traverseViewChildren(Array.isArray(children) ? children : [children]); 
-    }
-  }
-
   viewsFiles.forEach((viewFile) => {
     const file = viewFile.file;
-
-    if (viewFile.name === 'RiskAssesmentView.xml') {
-      // console.log('json for ', viewFile.name);
-      // file.component.property.forEach((property => console.log(property)));
-
-      traverseView(file);
-      // console.log('custom pro', file.component.customProperties?.property);
-      // console.log('component', getViewChildren(file));
-
-      // 'properties'
-      // 'bindings'
-    }
 
     const bindings = getViewBindings(file.component.property);
 
@@ -156,11 +96,8 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
       bindings: bindings && bindings.binding
       ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
       : [],
+      file: file,
     };
-
-    // if (view.name === 'MainView') {
-    //   console.log('main props', view.customProperties, file.component.customProperties);
-    // }
 
     app.addView(view);
   });

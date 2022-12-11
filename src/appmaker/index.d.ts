@@ -61,7 +61,7 @@ declare const app: {
   sanitizer: { sanitizeUrl(url: string): string;  };
   user: User;
 
-  executeRemoteScript<A extends Array<unknown>, R, S extends ServerScriptNames>(scriptName: S, functionName: ServerScriptExportedNamesMap[S], args: A, callback: ((result: R) => void) | { success: (result: R) => void; failure: (err: Error) => void;): void;
+  executeRemoteScript<A extends Array<unknown>, R, S extends ServerScriptNames>(scriptName: S, functionName: ServerScriptExportedNamesMap[S], args: A, callback: ((result: R) => void) | { success: (result: R) => void; failure: (err: Error) => void; }): void;
 
   showDialog(widget: Widget): void;
   closeDialog(): void;

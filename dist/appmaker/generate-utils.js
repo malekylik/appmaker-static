@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.traverseView = exports.traverseViewChildren = exports.getOnUnload = exports.getOnDataLoad = exports.getOnLoad = exports.getOnClick = exports.getOnValueEdit = exports.getOnValuesChange = exports.getOnChange = exports.getOnValidate = exports.getViewBindings = exports.getIsRootComponent = exports.getViewChildren = exports.getIsViewFragment = exports.getViewName = exports.getViewProperty = exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -115,3 +115,56 @@ const isDataSourceContainsParams = (datasource) => 'parameters' in datasource;
 exports.isDataSourceContainsParams = isDataSourceContainsParams;
 const isDataSourceContainsProperties = (datasource) => 'customProperties' in datasource;
 exports.isDataSourceContainsProperties = isDataSourceContainsProperties;
+const getViewProperty = (properties, propertyName) => properties.find(property => property.name === propertyName);
+exports.getViewProperty = getViewProperty;
+const getViewName = (properties) => (0, exports.getViewProperty)(properties, 'name')?.['#text'] ?? '';
+exports.getViewName = getViewName;
+const getIsViewFragment = (properties) => !!(0, exports.getViewProperty)(properties, 'isCustomWidget')?.['#text'];
+exports.getIsViewFragment = getIsViewFragment;
+const getViewChildren = (properties) => (0, exports.getViewProperty)(properties, 'children')?.['component'];
+exports.getViewChildren = getViewChildren;
+const getIsRootComponent = (properties) => (0, exports.getViewProperty)(properties, 'isRootComponent')?.['#text'] ?? false;
+exports.getIsRootComponent = getIsRootComponent;
+const getViewBindings = (properties) => (0, exports.getViewProperty)(properties, 'bindings');
+exports.getViewBindings = getViewBindings;
+// TODO: check if it applies for every widget
+const getOnValidate = (properties) => (0, exports.getViewProperty)(properties, 'onValidate');
+exports.getOnValidate = getOnValidate;
+const getOnChange = (properties) => (0, exports.getViewProperty)(properties, 'onChange');
+exports.getOnChange = getOnChange;
+const getOnValuesChange = (properties) => (0, exports.getViewProperty)(properties, 'onValuesChange');
+exports.getOnValuesChange = getOnValuesChange;
+const getOnValueEdit = (properties) => (0, exports.getViewProperty)(properties, 'onValueEdit');
+exports.getOnValueEdit = getOnValueEdit;
+const getOnClick = (properties) => (0, exports.getViewProperty)(properties, 'action');
+exports.getOnClick = getOnClick;
+const getOnLoad = (properties) => (0, exports.getViewProperty)(properties, 'onLoad');
+exports.getOnLoad = getOnLoad;
+const getOnDataLoad = (properties) => (0, exports.getViewProperty)(properties, 'onDataLoad');
+exports.getOnDataLoad = getOnDataLoad;
+const getOnUnload = (properties) => (0, exports.getViewProperty)(properties, 'onUnload');
+exports.getOnUnload = getOnUnload;
+function traverseViewChildren(children, callback = {}) {
+    children.forEach((child) => {
+        callback.onEnter = callback.onEnter ?? (() => { });
+        callback.onExit = callback.onExit ?? (() => { });
+        const children = (0, exports.getViewChildren)(child.property);
+        callback.onEnter(child.class, child.property);
+        if (children) {
+            traverseViewChildren(Array.isArray(children) ? children : [children], callback);
+        }
+        callback.onExit(child.class, child.property);
+    });
+}
+exports.traverseViewChildren = traverseViewChildren;
+function traverseView(view, callback = {}) {
+    callback.onEnter = callback.onEnter ?? (() => { });
+    callback.onExit = callback.onExit ?? (() => { });
+    const children = (0, exports.getViewChildren)(view.component.property);
+    callback.onEnter(view.component.class, view.component.property);
+    if (children) {
+        traverseViewChildren(Array.isArray(children) ? children : [children], callback);
+    }
+    callback.onExit(view.component.class, view.component.property);
+}
+exports.traverseView = traverseView;
