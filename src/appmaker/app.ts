@@ -3,6 +3,7 @@ import { AppMakerModelFolderContent, AppMakerScriptFolderContent, AppMakerViewFo
 import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
 import { generateDatasourceSourceFile, generateWidgetEventsSourceFile } from './script-file';
 import { getIsRootComponent, getIsViewFragment, getScriptExports, getViewBindings, getViewName } from './generate-utils';
+import { generateJSXForViews } from './views-generating';
 
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
@@ -53,6 +54,10 @@ export class App {
 
   generateWidgetEventsSourceFile(): string {
     return generateWidgetEventsSourceFile(this.views);
+  }
+
+  generateJSXForViews(): Array<{ name: string; code: string; }> {
+    return generateJSXForViews(this.views);
   }
 }
 

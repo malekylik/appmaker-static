@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.traverseView = exports.traverseViewChildren = exports.getOnUnload = exports.getOnDataLoad = exports.getOnLoad = exports.getOnClick = exports.getOnValueEdit = exports.getOnValuesChange = exports.getOnChange = exports.getOnValidate = exports.getViewBindings = exports.getIsRootComponent = exports.getViewChildren = exports.getIsViewFragment = exports.getViewName = exports.getViewProperty = exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.traverseView = exports.traverseViewChildren = exports.getOnUnload = exports.getOnDataLoad = exports.getOnLoad = exports.getOnClick = exports.getOnValueEdit = exports.getOnValuesChange = exports.getOnChange = exports.getOnValidate = exports.getViewCss = exports.getViewEnabled = exports.getViewVisible = exports.getViewStyleName = exports.getViewBindings = exports.getIsRootComponent = exports.getViewChildren = exports.getIsViewFragment = exports.getViewName = exports.getViewProperty = exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -127,6 +127,15 @@ const getIsRootComponent = (properties) => (0, exports.getViewProperty)(properti
 exports.getIsRootComponent = getIsRootComponent;
 const getViewBindings = (properties) => (0, exports.getViewProperty)(properties, 'bindings');
 exports.getViewBindings = getViewBindings;
+// TODO: check for it also inside bindings
+const getViewStyleName = (properties) => (0, exports.getViewProperty)(properties, 'styleName');
+exports.getViewStyleName = getViewStyleName;
+const getViewVisible = (properties) => (0, exports.getViewProperty)(properties, 'visible');
+exports.getViewVisible = getViewVisible;
+const getViewEnabled = (properties) => (0, exports.getViewProperty)(properties, 'enabled');
+exports.getViewEnabled = getViewEnabled;
+const getViewCss = (properties) => (0, exports.getViewProperty)(properties, 'css');
+exports.getViewCss = getViewCss;
 // TODO: check if it applies for every widget
 const getOnValidate = (properties) => (0, exports.getViewProperty)(properties, 'onValidate');
 exports.getOnValidate = getOnValidate;

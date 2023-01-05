@@ -22,8 +22,12 @@ declare type Datasource<T, Q = Record<string, unknown>, P = Record<string, unkno
   load(config?: { success: () => void; failure?: (e: Error) => void }): void;
   unload(): void;
 
+  clearDraftRecord(): void;
+
   properties: P;
   query: { parameters: Q };
+
+  size: number;
 };
 
 type WidgetCommon<D = null> = {

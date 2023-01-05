@@ -71,6 +71,10 @@ export type ViewBinding = {
 export type ChildrenPropery = { name: 'children'; type: string; '#text'?: string; component: Array<ViewChildren> | ViewChildren; };
 export type IsCustomWidgetPropery = { name: 'isCustomWidget'; '#text': string };
 export type WidgetNamePropery = { name: 'name'; '#text': string; };
+export type WidgetStyleNamePropery = { name: 'styleName'; '#text'?: string; };
+export type WidgetVisiblePropery = { name: 'visible'; '#text'?: string; };
+export type WidgetEnabledPropery = { name: 'enabled'; '#text'?: string; };
+export type WidgetCssPropery = { name: 'css'; '#text'?: string; };
 export type BindingsPropery = {
   name: 'bindings';
   binding?: ViewBinding | Array<ViewBinding>;
@@ -88,7 +92,11 @@ export type ViewProperty =
   | WidgetNamePropery
   | BindingsPropery
   | IsRootPropery
-  | ActionPropery;
+  | ActionPropery
+  | WidgetStyleNamePropery
+  | WidgetVisiblePropery
+  | WidgetEnabledPropery
+  | WidgetCssPropery;
 
 export interface ViewFile {
   component: {

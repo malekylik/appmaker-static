@@ -6,6 +6,8 @@ import {
   getNameForDataSourceParams, getNameForDataSourceProperties, isDataSourceContainsProperties, isDataSourceContainsParams, getTypeForProperties, getDataSourceViewBinding, getDataSourceNameFromBinding, getNameForViewFragment, getNameForView,
 } from './generate-utils';
 
+const LocalKeyField = { name: '_localKey', type: 'Number', required: false, autoIncrement: false };
+
 enum TypeToGenerate {
   Views = 'Views',
   ViewFragments = 'ViewFragments',
@@ -75,7 +77,7 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
   }
 
   function createModelProperties(fields: Model['fields']): ts.TypeLiteralNode {
-    return ts.factory.createTypeLiteralNode(fields.map(field => createLiteralTypeProperty(
+    return ts.factory.createTypeLiteralNode([...fields, LocalKeyField].map(field => createLiteralTypeProperty(
       field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))) :
       ts.factory.createUnionTypeNode(
         [ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType(field.type))), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(converAppMakerPropertyTypeToTSType('null')))]

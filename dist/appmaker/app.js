@@ -4,6 +4,7 @@ exports.initAppMakerApp = exports.App = void 0;
 const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
+const views_generating_1 = require("./views-generating");
 class App {
     constructor() {
         this.views = [];
@@ -32,6 +33,9 @@ class App {
     }
     generateWidgetEventsSourceFile() {
         return (0, script_file_1.generateWidgetEventsSourceFile)(this.views);
+    }
+    generateJSXForViews() {
+        return (0, views_generating_1.generateJSXForViews)(this.views);
     }
 }
 exports.App = App;

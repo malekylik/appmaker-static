@@ -1,5 +1,5 @@
 import * as ts from 'typescript';
-import { ActionPropery, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery } from '../appmaker';
+import { ActionPropery, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery, WidgetStyleNamePropery } from '../appmaker';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -133,6 +133,11 @@ export const getIsViewFragment = (properties: Array<ViewProperty>): boolean => !
 export const getViewChildren = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'children') as ChildrenPropery | undefined)?.['component'];
 export const getIsRootComponent = (properties: Array<ViewProperty>): boolean => (getViewProperty(properties, 'isRootComponent') as IsRootPropery | undefined)?.['#text'] ?? false;
 export const getViewBindings = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'bindings') as BindingsPropery | undefined);
+// TODO: check for it also inside bindings
+export const getViewStyleName = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'styleName') as WidgetStyleNamePropery | undefined);
+export const getViewVisible = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'visible') as WidgetStyleNamePropery | undefined);
+export const getViewEnabled = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'enabled') as WidgetStyleNamePropery | undefined);
+export const getViewCss = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'css') as WidgetStyleNamePropery | undefined);
 // TODO: check if it applies for every widget
 export const getOnValidate = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onValidate') as ActionPropery | undefined);
 export const getOnChange = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'onChange') as ActionPropery | undefined);

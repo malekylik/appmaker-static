@@ -136,21 +136,32 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
             tsFilesToCheck.push(pathToFileTSFile);
         }
     }
+    const generatedViews = app.generateJSXForViews();
     const pathToTypes = `${pathToProject}/type`;
+    const pathToViews = `${pathToProject}/views`;
     const files = tsFilesToCheck.concat([
         `${pathToProject}/__models.js`, `${pathToProject}/__events.js`,
         `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`,
+        ...generatedViews.map(view => `${pathToViews}/${view.name}.jsx`),
     ]);
-    const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+    const conf = {
+        ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true,
+        jsx: 'react-jsx',
+    };
     await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
     await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
     await mkdir(pathToTypes);
+    await mkdir(pathToViews);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/cloudSqlService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`);
     await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());
     await writeFile(`${pathToTypes}/dataService.d.ts`, app.generateDataserviceSourceFile());
     await writeFile(`${pathToProject}/__models.js`, app.generateDatasourceSourceFile());
     await writeFile(`${pathToProject}/__events.js`, app.generateWidgetEventsSourceFile());
+    for (let i = 0; i < generatedViews.length; i++) {
+        const view = generatedViews[i];
+        await writeFile(`${pathToViews}/${view?.name}.jsx`, view?.code);
+    }
     return files;
 }
 exports.generateJSProjectForAppMaker = generateJSProjectForAppMaker;

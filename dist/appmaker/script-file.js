@@ -37,6 +37,7 @@ function generateDatasourceSourceFile(models) {
 exports.generateDatasourceSourceFile = generateDatasourceSourceFile;
 function getWidgetEvents(widgetClass, properties) {
     // TODO: add type generation for the args
+    // TODO: add textfield generating
     const argsForOnLoad = ['widget'];
     const argsForOnUnload = ['widget'];
     const argsForOnDataLoad = ['widget'];

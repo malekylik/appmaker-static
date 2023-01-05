@@ -10,16 +10,20 @@ declare interface RecordQuery <T extends Record<string, unknown> = Record<string
   limit: number | null;
   offset: number;
   parameters: T;
+  // asc - default option if ascending is not defined
+  sortBy: Array<[fieldPath: string, ascending?: boolean]>;
 }
 
 // Passed by user to DataService methods
 declare interface QueryRecord<T extends ModelNames> {
   model: T;
 
-  filters?: Record<string, unknown>;
+  filters?: Record<string, unknown> | undefined;
   // asc - default option if ascending is not defined
   sortBy?: Array<[fieldPath: string, ascending?: boolean]>;
   prefetch?: Array<ModelNames>;
+  where?: string;
+  parameters?: Record<string, string | number | null> | undefined;
 }
 
 declare module 'dataService' {
@@ -29,6 +33,7 @@ declare module 'dataService' {
     queryRecords<T extends ModelNames>(query: QueryRecord<T>): {
       getRecords(): Array<ModelNamesToModelTypeMap[T]>;
     };
+    saveRecords(records: Array<unknown>): void;
   }
 
   const dataService: DataService;
