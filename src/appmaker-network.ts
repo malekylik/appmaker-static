@@ -42,15 +42,32 @@ export async function auth(page: puppeteer.Page, credentials: { login: string; p
 
   console.log('fill credits');
 
+  let isUserNameFilled = true;
+  let isUserPasswordFilled = true;
+
   // TODO: what if credentials have already been provided and only touch is left
-  await page.$eval("#username", (element: any, login: string) => element.value = login, credentials.login);
-  await page.$eval("#password", (element: any, password: string) => element.value = password, credentials.password);
+  try {
+    await page.$eval("#username", (element: any, login: string) => element.value = login, credentials.login);
+  } catch {
+    isUserNameFilled = false;
+  }
+
+  try {
+    await page.$eval("#password", (element: any, password: string) => element.value = password, credentials.password);
+  } catch {
+    isUserPasswordFilled = false;
+  }
 
   await new Promise(res => setTimeout(res, 2000));
 
   const submitElement = await page.$('#signInButton');
 
   if (!isAppPage(page.url())) {
+    return;
+  }
+
+  if (!isUserNameFilled && !isUserPasswordFilled) {
+    console.log('Couldnt find both name and password fields. Skip auth');
     return;
   }
 

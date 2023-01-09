@@ -20,6 +20,7 @@ export interface Script {
   exports: Array<string>;
 }
 
+// TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 export class App {
   private views: Array<View> = [];
   private models: Array<Model> = [];
@@ -98,9 +99,7 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
       customProperties: file.component.customProperties?.property
         ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
         : [],
-      bindings: bindings && bindings.binding
-      ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
-      : [],
+      bindings: bindings,
       file: file,
     };
 

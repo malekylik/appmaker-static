@@ -1,12 +1,164 @@
 import type { View } from './app';
 import * as ts from 'typescript';
-import { ViewChildren, ViewProperty, WidgetClass } from '../appmaker';
-import { getViewBindings, getViewChildren, getViewCss, getViewEnabled, getViewName, getViewStyleName, getViewVisible, traverseView } from './generate-utils';
+import { ViewBinding, ViewProperty, WidgetClass } from '../appmaker';
+import { getViewBindings, getViewCss, getViewName, getViewStyleName, getViewVisible, hexHtmlToString, stringifyAppMakerProperty, traverseView } from './generate-utils';
+
+const BindingAsAttribsSkip = [
+  '_dataSource', // datasource cant conitian complex expression, just one of datasources, so it's easier to inspect the code, if we inline _dataSource bindgin
+];
+
+// add more actions
+const AttribsWithFuncGeneration = [
+  'action',
+  'onLoad',
+  'onDataLoad',
+  'onUnload',
+
+  'onClick',
+  'onChange',
+  'onValueEdit',
+  'onValidate',
+
+  'onTextChange',
+  'inputChange',
+];
+
+function getFunctionNameForBinding(widgetClass: WidgetClass, name: string, bindingName: string): string {
+  // for custom components 
+  bindingName = bindingName.replace('.', '_');
+
+  return `get${widgetClass}_${name}_${bindingName}`;
+}
+
+function getAttribsForComponent(widgetClass: WidgetClass, properties: Array<ViewProperty>, parentDatasource: string | null): Array<string> {
+  let attribs: Array<string> = [];
+  let isDatasourceAdded = false;
+
+  const bindings = getViewBindings(properties);
+
+  const name = getViewName(properties);
+
+  for (let i = 0; i < bindings.length; i++) {
+    const binding = bindings[i] as ViewBinding;
+
+    const bindingName = getFunctionNameForBinding(widgetClass, name, binding.sourceExpression);
+    // for custom components 
+    const bindingPropertyName = binding.sourceExpression.replace('.', '_');
+
+    if (BindingAsAttribsSkip.includes(binding.sourceExpression)) {
+      // TODO: might be incorect :( should check the datasource name by id from targetExpression
+      let attribValue = hexHtmlToString(binding.targetLiteralExpression);
+
+      // add dataSource attrib for inhereted datasources
+      if (binding.sourceExpression === '_dataSource') {
+        const match = attribValue.match(/@\w+\.(\w+)/) ?? [];
+        const datasouceName = match[1];
+
+        if (datasouceName) {
+          attribValue = `app.datasources.${datasouceName}`;
+
+          isDatasourceAdded = true;
+        }
+      }
+
+      attribs.push(`${bindingPropertyName}={${attribValue}}`);
+    } else {
+      attribs.push(`${bindingPropertyName}={${bindingName}()}`);
+    }
+  }
+
+  if (!isDatasourceAdded) {
+    if (parentDatasource) {
+      attribs.push(`_inheritedDataSource={app.datasources.${parentDatasource}}`);
+    } else {
+      attribs.push(`_dataSource={null}`);
+    }
+  }
+
+  for (let i = 0; i < properties.length; i++) {
+    const property = properties[i] as ViewProperty;
+
+    if (property.name === 'bindings') continue;
+
+    // bindings takes precedent over just properties
+    if (bindings.find(binding => binding.sourceExpression === property.name)) continue;
+
+    if (property['#text'] && !property['isNull']) {
+      if (AttribsWithFuncGeneration.includes(property.name)) {
+        const bindingName = getFunctionNameForBinding(widgetClass, name, property.name);
+
+        attribs.push(`${property.name}={${bindingName}()}`);
+      } else {
+        attribs.push(`${property['name']}={${stringifyAppMakerProperty(property['type'], property['#text'])}}`);
+      }
+    }
+  }
+
+  return attribs;
+}
+
+function generateBindings(widgetClass: WidgetClass, properties: Array<ViewProperty>) {
+  const bindingStatements: Array<ts.Statement> = [];
+  const bindings = getViewBindings(properties);
+
+  const name = getViewName(properties);
+
+  for (let i = 0; i < bindings.length; i++) {
+    const binding = bindings[i] as ViewBinding;
+
+    if (BindingAsAttribsSkip.includes(binding.sourceExpression)) {
+      continue;
+    }
+
+    const bodyStatements: Array<ts.Statement> = [
+      ts.factory.createReturnStatement(ts.factory.createIdentifier(
+        hexHtmlToString(binding.targetLiteralExpression) + '\n'
+      )),
+    ];
+    const functionBody = ts.factory.createBlock(bodyStatements);
+
+    bindingStatements.push(
+      ts.factory.createFunctionDeclaration(
+        [], undefined, ts.factory.createIdentifier(getFunctionNameForBinding(widgetClass, name, binding.sourceExpression)),
+        [],
+        // TODO: add check if the args are used in the func
+        [],
+        undefined, functionBody)
+    );
+  }
+
+  for (let i = 0; i < properties.length; i++) {
+    const property = properties[i] as ViewProperty;
+
+    if (property.name === 'bindings') continue;
+
+    if (AttribsWithFuncGeneration.includes(property.name) && property['#text']) {
+      const bodyStatements: Array<ts.Statement> = [
+        ts.factory.createExpressionStatement(ts.factory.createIdentifier(
+          hexHtmlToString(String(property['#text'])) + '\n'
+        )),
+      ];
+      const functionBody = ts.factory.createBlock(bodyStatements);
+
+      bindingStatements.push(
+        ts.factory.createFunctionDeclaration(
+          [], undefined, ts.factory.createIdentifier(getFunctionNameForBinding(widgetClass, name, property.name)),
+          [],
+          // TODO: add check if the args are used in the func
+          [],
+          undefined, functionBody)
+      );
+    }
+  }
+
+  return bindingStatements;
+}
 
 export function generateJSXForViews(views: Array<View>): Array<{ name: string; code: string; }> {
   return views.map(view => {
-    const statements: Array<ts.Node> = [];
+    let statements: Array<ts.Node> = [];
     const currentTag: Array<{ tag: string; name: string }> = [];
+    const datasources: Array<string | null> = [];
     let jsx: Array<string> = [];
     let level = 0;
 
@@ -14,37 +166,58 @@ export function generateJSXForViews(views: Array<View>): Array<{ name: string; c
 
     function onEnter(widgetClass: WidgetClass, properties: Array<ViewProperty>) {
       const name = getViewName(properties);
-      const styleName = getViewStyleName(properties);
-      const visible = getViewVisible(properties);
-      const enabled = getViewEnabled(properties);
-      const css = getViewCss(properties);
+      const bindingStatements = generateBindings(widgetClass, properties);
 
-      const _bindings = getViewBindings(properties);
-      const bindings = _bindings?.binding ? (Array.isArray(_bindings.binding) ? _bindings.binding : [_bindings.binding]) : null;
-      const styleNameBinding = bindings ? bindings.filter(binding => binding.sourceExpression === 'styleName')[0] ?? null : null;
-      const visibleBinding = bindings ? bindings.filter(binding => binding.sourceExpression === 'visible')[0] ?? null : null;
-      const enabledBinding = bindings ? bindings.filter(binding => binding.sourceExpression === 'enabled')[0] ?? null : null;
+      if (bindingStatements.length > 0) {
+        statements = statements.concat(bindingStatements);
+        statements.push(ts.factory.createExpressionStatement(ts.factory.createIdentifier('')));
+      }
 
       currentTag.push({ tag: widgetClass, name });
       const indent = ' '.repeat(level * 2);
       const attrIndent = ' '.repeat((level + 1) * 2);
-      const attribs = [
-        `name='${name}'`,
-        `styleName={\`${styleNameBinding?.targetLiteralExpression ?? styleName?.['#text'] ?? ''}\`}`,
-        `css={\`${css?.['#text'] ?? ''}\`}`,
-        `visible={\`${visibleBinding?.targetLiteralExpression ?? visible?.['#text'] ?? ''}\`}`,
-        `enabled={\`${enabledBinding?.targetLiteralExpression ?? enabled?.['#text'] ?? ''}\`}`,
-      ].map(attr => `${attrIndent}${attr}`)
-      .join('\n');
+      const parentDatasource = datasources.length > 0 ? (datasources[datasources.length - 1] ?? null) : null;
 
-      // styleName
+      let attribs = getAttribsForComponent(widgetClass, properties, parentDatasource);
 
-      jsx.push(`${indent}<${widgetClass}\n${attribs}\n${indent}>`);
+      const bindings = getViewBindings(properties);
+      const datasourceBinding = bindings.find(binding => binding.sourceExpression === '_dataSource');
+
+      if (datasourceBinding) {
+        const attribValue = hexHtmlToString(datasourceBinding.targetLiteralExpression);
+        const match = attribValue.match(/@\w+\.(\w+)/) ?? [];
+        const datasouceName = match[1];
+
+        if (datasouceName) {
+          datasources.push(datasouceName);
+        } else {
+          datasources.push(null);
+        }
+      }
+
+      // if (name === 'AddGapDialog') {
+        // console.log(`${name} datasourceBinding`, JSON.stringify(datasourceBinding));
+        // if (datasourceBinding) {
+        //   const attribValue = hexHtmlToString(datasourceBinding.targetLiteralExpression);
+        //   const match = attribValue.match(/@\w+\.(\w+)/) ?? [];
+        //   const datasouceName = match[1];
+
+        //   console.log(`${name} attribValue`, attribValue);
+        //   console.log(`${name} datasouceName`, datasouceName);
+        // }
+      // }
+
+      const attribsStr = attribs
+        .map(attr => `${attrIndent}${attr}`)
+        .join('\n');
+
+      jsx.push(`${indent}<${widgetClass}\n${attribsStr}\n${indent}>`);
       level += 1;
     }
 
     function onExit() {
       const props = currentTag.pop() as { tag: string; name: string };
+      datasources.pop();
       level -= 1;
       jsx.push(`${' '.repeat(level * 2)}</${props.tag}>`);
     }

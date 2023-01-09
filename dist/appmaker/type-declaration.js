@@ -4,6 +4,7 @@ exports.generateDataserviceSourceFile = exports.generateTypeDeclarationFile = vo
 const ts = require("typescript");
 const path = require("path");
 const generate_utils_1 = require("./generate-utils");
+const LocalKeyField = { name: '_localKey', type: 'Number', required: false, autoIncrement: false };
 var TypeToGenerate;
 (function (TypeToGenerate) {
     TypeToGenerate["Views"] = "Views";
@@ -51,7 +52,7 @@ function generateTypeDeclarationFile(views, viewFragments, models, scripts) {
         })));
     }
     function createModelProperties(fields) {
-        return ts.factory.createTypeLiteralNode([...fields, { name: '_localKey', type: 'Number', required: false, autoIncrement: false }].map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))) :
+        return ts.factory.createTypeLiteralNode([...fields, LocalKeyField].map(field => (0, generate_utils_1.createLiteralTypeProperty)(field.name, field.required || field.autoIncrement ? ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))) :
             ts.factory.createUnionTypeNode([ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)(field.type))), ts.factory.createTypeReferenceNode(ts.factory.createIdentifier((0, generate_utils_1.converAppMakerPropertyTypeToTSType)('null')))]))));
     }
     function substituteNode(_, node) {

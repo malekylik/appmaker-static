@@ -15,6 +15,7 @@
     "exactOptionalPropertyTypes": true,
     "noPropertyAccessFromIndexSignature": false,
     "baseUrl": ".",
-    "outDir": "dist"
+    "outDir": "dist",
+    "jsx": "react-jsx"
   }
 }

@@ -5,6 +5,7 @@ const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
 const views_generating_1 = require("./views-generating");
+// TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 class App {
     constructor() {
         this.views = [];
@@ -68,9 +69,7 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
             customProperties: file.component.customProperties?.property
                 ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
                 : [],
-            bindings: bindings && bindings.binding
-                ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
-                : [],
+            bindings: bindings,
             file: file,
         };
         app.addView(view);
