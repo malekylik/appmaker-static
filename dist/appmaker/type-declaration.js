@@ -36,7 +36,7 @@ function generateTypeDeclarationFile(views, viewFragments, models, scripts) {
             }
             typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
         }
-        return (ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments));
+        return (ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Panel'), typeArguments));
     }
     function createDatasourceProperties(models) {
         return ts.factory.createTypeLiteralNode(models.flatMap(model => model.dataSources.map((datasource) => {

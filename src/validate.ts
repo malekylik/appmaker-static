@@ -11,7 +11,9 @@ export function lint(code: string, config: Linter.Config<Linter.RulesRecord>, fi
 }
 
 export function checkTypes(filesToCheck: Array<string>, tsConfig: TSConfig) {
-  const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+  const conf = { ...tsConfig.compilerOptions,
+    moduleResolution: ts.ModuleResolutionKind.Classic,
+    noEmit: true, allowJs: true, checkJs: true };
 
   let program = ts.createProgram(filesToCheck, conf);
   let emitResult = program.emit();

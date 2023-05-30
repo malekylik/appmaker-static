@@ -136,7 +136,7 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
     console.log('newPage');
 
     // TODO: not always wait correctly
-    await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, {waitUntil: 'networkidle2'});
+    await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, {waitUntil: 'networkidle2', timeout: 60000});
 
     if (isAuthPage(page.url())) {
       await auth(page, credentials);

@@ -11,8 +11,13 @@ class App {
         this.views = [];
         this.models = [];
         this.scripts = [];
+        this.customComponentKeyMap = new Map();
     }
     addView(view) {
+        if (view.isViewFragment) {
+            this.customComponentKeyMap.set(view.key, view.name);
+            this.customComponentKeyMap.set(view.name, view.key);
+        }
         this.views.push(view);
     }
     addModel(model) {
@@ -36,6 +41,8 @@ class App {
         return (0, script_file_1.generateWidgetEventsSourceFile)(this.views);
     }
     generateJSXForViews() {
+        // TODO: remove
+        // console.log('generateJSXForViews map', this.customComponentKeyMap);
         return (0, views_generating_1.generateJSXForViews)(this.views);
     }
 }

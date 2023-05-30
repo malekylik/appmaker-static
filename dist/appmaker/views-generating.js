@@ -4,7 +4,7 @@ exports.generateJSXForViews = void 0;
 const ts = require("typescript");
 const generate_utils_1 = require("./generate-utils");
 const BindingAsAttribsSkip = [
-    '_dataSource', // datasource cant conitian complex expression, just one of datasources, so it's easier to inspect the code, if we inline _dataSource bindgin
+    '_dataSource', // datasource cant conitian complex expression, just one of datasources, so it's easier to inspect the code, if we inline _dataSource binding
 ];
 // add more actions
 const AttribsWithFuncGeneration = [
@@ -18,6 +18,7 @@ const AttribsWithFuncGeneration = [
     'onValidate',
     'onTextChange',
     'inputChange',
+    'onSelectedTabChange',
 ];
 function getFunctionNameForBinding(widgetClass, name, bindingName) {
     // for custom components 

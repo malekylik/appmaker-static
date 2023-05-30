@@ -4,7 +4,7 @@ import { ViewBinding, ViewProperty, WidgetClass } from '../appmaker';
 import { getViewBindings, getViewCss, getViewName, getViewStyleName, getViewVisible, hexHtmlToString, stringifyAppMakerProperty, traverseView } from './generate-utils';
 
 const BindingAsAttribsSkip = [
-  '_dataSource', // datasource cant conitian complex expression, just one of datasources, so it's easier to inspect the code, if we inline _dataSource bindgin
+  '_dataSource', // datasource cant conitian complex expression, just one of datasources, so it's easier to inspect the code, if we inline _dataSource binding
 ];
 
 // add more actions
@@ -21,6 +21,8 @@ const AttribsWithFuncGeneration = [
 
   'onTextChange',
   'inputChange',
+
+  'onSelectedTabChange',
 ];
 
 function getFunctionNameForBinding(widgetClass: WidgetClass, name: string, bindingName: string): string {

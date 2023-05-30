@@ -105,7 +105,7 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         await new Promise(res => setTimeout(res, 2000));
         console.log('newPage');
         // TODO: not always wait correctly
-        await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, { waitUntil: 'networkidle2' });
+        await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, { waitUntil: 'networkidle2', timeout: 60000 });
         if (isAuthPage(page.url())) {
             await auth(page, credentials);
         }

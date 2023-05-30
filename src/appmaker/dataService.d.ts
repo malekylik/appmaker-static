@@ -23,6 +23,8 @@ declare interface QueryRecord<T extends ModelNames> {
   sortBy?: Array<[fieldPath: string, ascending?: boolean]>;
   prefetch?: Array<ModelNames>;
   where?: string;
+  limit?: number | null;
+  offset?: number | null;
   parameters?: Record<string, string | number | null> | undefined;
 }
 
@@ -30,10 +32,12 @@ declare module 'dataService' {
   interface DataService {
     createRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
     createDraftRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
+    getAppSingletonRecord<T extends ModelNames>(model: T): ModelNamesToModelTypeMap[T];
     queryRecords<T extends ModelNames>(query: QueryRecord<T>): {
       getRecords(): Array<ModelNamesToModelTypeMap[T]>;
     };
     saveRecords(records: Array<unknown>): void;
+    deleteRecords<T extends ModelNames>(model: T, localKeys: Array<string | number | null>): void;
   }
 
   const dataService: DataService;

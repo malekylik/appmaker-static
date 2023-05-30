@@ -49,7 +49,7 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
     }
 
     return (
-        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('LayoutWidget'), typeArguments)
+        ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('Panel'), typeArguments)
     );
   }
 

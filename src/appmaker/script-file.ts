@@ -31,6 +31,7 @@ export function generateDatasourceSourceFile(models: Array<Model>): string {
       }
     }
 
+    // TODO: change to classic export style
     statements.push(ts.factory.createFunctionDeclaration(
       [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], undefined, ts.factory.createIdentifier(getFunctionName(model.name, datasource.name)), [], functionParams, undefined, functionBody));
 

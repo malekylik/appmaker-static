@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.getCommandNumberFromApp = exports.getXSRFToken = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
@@ -40,12 +40,16 @@ function toUtfStr(str) {
 // fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => console.log(r))
 // command used for updating app
 // fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => console.log(r))
-function getXSRFToken(page) {
-    return page.waitForSelector('input[name="xsrfToken"]')
-        .then(() => page.$eval('input[name="xsrfToken"]', (input) => {
-        const xsrfToken = (input.value);
-        return xsrfToken;
-    }));
+async function getClientEnvironment(page) {
+    const resultHandle = await page.evaluateHandle(() => window.clientEnvironment);
+    const clientEnvironment = await resultHandle.jsonValue();
+    resultHandle.dispose();
+    return Promise.resolve(clientEnvironment);
+}
+exports.getClientEnvironment = getClientEnvironment;
+async function getXSRFToken(page) {
+    const clientEnvironment = await getClientEnvironment(page);
+    return clientEnvironment.initialXsrfToken;
 }
 exports.getXSRFToken = getXSRFToken;
 async function getCommandNumberFromApp(page) {

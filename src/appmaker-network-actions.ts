@@ -46,13 +46,19 @@ function toUtfStr(str: string): string {
 // command used for updating app
 // fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => console.log(r))
 
-export function getXSRFToken(page: puppeteer.Page): Promise<string> {
-  return page.waitForSelector('input[name="xsrfToken"]')
-    .then(() => page.$eval('input[name="xsrfToken"]', (input: any) => {
-      const xsrfToken = (input.value);
-  
-      return xsrfToken;
-    }));
+export async function getClientEnvironment(page: puppeteer.Page): Promise<{ initialXsrfToken: string }> {
+  const resultHandle = await page.evaluateHandle(() => (window as any).clientEnvironment);
+  const clientEnvironment = await resultHandle.jsonValue();
+
+  resultHandle.dispose();
+
+  return Promise.resolve(clientEnvironment);
+}
+
+export async function getXSRFToken(page: puppeteer.Page): Promise<string> {
+  const clientEnvironment = await getClientEnvironment(page);
+
+  return clientEnvironment.initialXsrfToken;
 }
 
 export async function getCommandNumberFromApp(page: puppeteer.Page) {

@@ -1,4 +1,4 @@
-import { DataSource, ModelFile, ViewBinding, ViewFile } from '../appmaker';
+import { AppMakerVarType, DataSource, ModelFile, ViewBinding, ViewFile } from '../appmaker';
 import { AppMakerModelFolderContent, AppMakerScriptFolderContent, AppMakerViewFolderContent } from '../io';
 import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './type-declaration';
 import { generateDatasourceSourceFile, generateWidgetEventsSourceFile } from './script-file';
@@ -20,13 +20,33 @@ export interface Script {
   exports: Array<string>;
 }
 
+type NormilizedPanel = {
+  class: 'Panel';
+  key: string;
+  isCustomWidget: false;
+}
+
+type NormilizedCustomPanel = {
+  class: 'Panel';
+  key: string;
+  isCustomWidget: false;
+  customProperties: Array<{ key: string; name: string; type: AppMakerVarType; }>;
+}
+
 // TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 export class App {
   private views: Array<View> = [];
   private models: Array<Model> = [];
   private scripts: Array<Script> = [];
 
+  private customComponentKeyMap = new Map<string, string>();
+
   addView(view: View) {
+    if (view.isViewFragment) {
+      this.customComponentKeyMap.set(view.key, view.name);
+      this.customComponentKeyMap.set(view.name, view.key);
+    }
+
     this.views.push(view);
   }
 
@@ -58,6 +78,9 @@ export class App {
   }
 
   generateJSXForViews(): Array<{ name: string; code: string; }> {
+    // TODO: remove
+    // console.log('generateJSXForViews map', this.customComponentKeyMap);
+
     return generateJSXForViews(this.views);
   }
 }
