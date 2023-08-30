@@ -1,12 +1,44 @@
 import * as ts from 'typescript';
 import { LintingReport } from './validate';
+import * as chalk from 'chalk';
+
+
+function coloringNumber(text: string | number): string {
+  return chalk.yellowBright(text);
+}
+
+function coloringPath(text: string | number): string {
+  return chalk.cyan(text);
+}
+
+function coloringCode(text: string | number): string {
+  return chalk.blackBright(text);
+}
 
 export function printTSCheckDiagnostics(diagnostics: ts.Diagnostic[]): void {
+  let prevFile = '';
+  let fileNumber = 0;
+  let diagnosticOfFile = 0;
+
+  console.log('---TSCheckDiagnostic---');
+
   diagnostics.forEach((diagnostic) => {
     if (diagnostic.file) {
+      if (prevFile !== diagnostic.file.fileName) {
+        prevFile = diagnostic.file.fileName;
+        fileNumber += 1;
+
+        diagnosticOfFile = 0;
+
+        console.log('\n\n');
+        console.log(`---${coloringNumber(fileNumber)} - ${coloringPath(diagnostic.file.fileName)}---`);
+      }
+
+      diagnosticOfFile += 1;
+
       let { line, character } = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start!);
       let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
-      console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+      console.log(`\t${coloringNumber(fileNumber)}.${coloringNumber(diagnosticOfFile)} - ${coloringPath(diagnostic.file.fileName)} (${coloringNumber(line + 1)},${coloringNumber(character + 1)}) ${coloringCode(`TS${diagnostic.code}`)}: ${message}`);
     } else {
       console.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
     }
@@ -18,7 +50,7 @@ export function printLintingReport(lintingReport: LintingReport): void {
     const { name, report } = lintingReport[i]!;
   
     if (report.fixed) {
-      console.log(`-----${name}-----`);
+      console.log(`-----${coloringPath(name)}-----`);
   
       console.log('Not fixed', report.messages);
     }

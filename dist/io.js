@@ -142,7 +142,7 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     const files = tsFilesToCheck.concat([
         `${pathToProject}/__models.js`,
         // `${pathToProject}/__events.js`,
-        `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`, `${pathToTypes}/userProvider.d.ts`
+        `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/services.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`, `${pathToTypes}/userProvider.d.ts`
         // ...generatedViews.map(view => `${pathToViews}/${view.name}.jsx`), TODO: uncomment when types for jsx is created
     ]);
     const conf = {
@@ -154,6 +154,7 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     await mkdir(pathToTypes);
     await mkdir(pathToViews);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
+    await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/services.d.ts`, `${pathToTypes}/services.d.ts`);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/cloudSqlService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/userProvider.d.ts`, `${pathToTypes}/userProvider.d.ts`);
     await writeFile(`${pathToTypes}/index.d.ts`, app.generateAppDeclarationFile());

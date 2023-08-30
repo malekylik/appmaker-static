@@ -6,6 +6,7 @@ const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
 // Status Code: 302 means need to relogin
+// POST https://spotlight-dev-sprabahar.googleplex.com/_api/base/app_data/v1/query_records 412 - reload required
 
 function toUtfStr(str: string): string {
   let end = ''
