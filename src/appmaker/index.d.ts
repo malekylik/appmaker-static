@@ -12,6 +12,27 @@ declare type List<T> = {
   toArray(): Array<T>;
 }
 
+declare type ModelMetaStringField = {
+  maxLength: number | null;
+  minLength: number | null;
+  required: boolean;
+}
+
+declare type ModelMetaNumberField = {
+  maxValue: number | null;
+  minValue: number | null;
+  required: boolean;
+}
+
+declare type ModelMeta<T> = {
+  fields: {
+      [P in keyof T]: number extends T[P] ? ModelMetaNumberField
+      : string extends T[P]
+          ? ModelMetaStringField
+          : ModelMetaNumberField | ModelMetaStringField
+  };
+}
+
 declare type Datasource<T, Q = Record<string, unknown>, P = Record<string, unknown>> = {
   item: T | null;
   items: List<T> | null;
@@ -27,13 +48,19 @@ declare type Datasource<T, Q = Record<string, unknown>, P = Record<string, unkno
 
   clearDraftRecord(): void;
 
-  create(callback?: () => void): void;
-  saveChanges(callback?: () => void): void;
+  create(config?: { success: () => void; failure?: (e: Error) => void }): void;
+  saveChanges(config?: { success: () => void; failure?: (e: Error) => void }): void;
 
   properties: P;
-  query: { parameters: Q };
+  query: {
+    parameters: Q;
+
+    sortBy: (sortDescriptors: Array<[fieldPath: string, ascending?: boolean]>) => void;
+  };
 
   size: number;
+
+  model: ModelMeta<T>;
 };
 
 // https://source.corp.google.com/piper///depot/google3/corp/appmaker/widget_types.ts
@@ -552,7 +579,7 @@ declare interface StringConstraints {
 /** A simple text field widget. */
 declare interface TextField<D = unknown> extends EnableableTextWidget,
                                                  FocusableWidget,
-                                                 HasEnabledValue<string>,
+                                                 HasEnabledValue<string | null>,
                                                  HasInputChangeEvents,
                                                  HasPlaceholderWidget,
                                                  HasValueChangeEvents,
@@ -590,10 +617,53 @@ declare interface TextArea<D = unknown> extends EnableableTextWidget, FocusableW
   resize: string;
 }
 
+/**
+ * A multiple select list box which allows user to select a list of items from
+ * another list of \ options. The selected values are exposed in the values
+ * property, and the options to pick from are in options. The type of items in
+ * options should match the type of items in values. You can specify a custom
+ * string to display for each option by setting the names property.
+ */
+declare interface MultiSelectBox<D = unknown> extends EnableableWidget,
+                                                FocusableWidget, InputWidget<D> {
+  /** Focuses this widget. */
+  focus(): void;
+
+  /**
+   * An optional list of strings that correspond 1-1 with the options. The
+   * strings will be used as labels to display the options. This is useful if
+   * the values set in options and values are not strings, and instead set some
+   * underlying data in the backend. For example, if value and options are bound
+   * to a record, this could be used to display a certain field of the record to
+   * the user.
+   */
+  names: List<string>;
+
+  /**
+   * Some examples of what the options property can be bound to include:
+   *     * Constant JavaScript list: ["1","2","3"].
+   *     * Items of a data source. If you have a model with a field City, you
+   *       can bind options to @datasource.items.City. Then if there are three
+   *       records with values "L.A.", "San Francisco" and "Mountain View", the
+   *       list of selectable options will contain the same values.
+   *     * A field's possible values:
+   *       @datasource.model.fields.FIELD_NAME.possibleValues.
+   */
+  options: List<unknown>;
+
+  /** The list of currently selected options. */
+  values: List<unknown>;
+}
+
 declare type User = {
   email: string;
   groups: List<string>;
   username: string;
+};
+
+declare type AppLoader = {
+  suspendLoad: () => void;
+  resumeLoad: () => void;
 };
 
 declare const app: {

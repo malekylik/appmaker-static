@@ -42,7 +42,7 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
       const propertiesTypeName = view.isViewFragment ? getNameForViewFragmentProperties(view.name) : getNameForViewProperties(view.name);
 
       if (typeArguments.length === 0) {
-        typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+        typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('unknown')));
       }
 
       typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));

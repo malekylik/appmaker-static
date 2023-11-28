@@ -25,20 +25,3 @@ async function run() {
     }
 }
 run();
-// var b = `
-//   var res = executeSQL(sql, callback);
-//   return res;
-// }
-// exports.getFilteredProcessWithRAForRiskAssessment.as   = getFilteredProcessWithRAForRiskAssessment;
-// exports.getFilteredProcessWithRAForRiskAssessmentHistory = getFilteredProcessWithRAForRiskAssessmentHistory;
-// exports.getRCOProcesses = getRCOProcesses;
-// exports.getFiltersForLastRADate = getFiltersForLastRADate;
-// exports.getFiltersForNextRADate = getFiltersForNextRADate;
-// exports.getFiltersForHCProcessIdField = getFiltersForHCProcessIdField;
-// exports.getFiltersForRALeadField = getFiltersForRALeadField;
-// exports.getFiltersForGPOField = getFiltersForGPOField;
-// exports.getFiltersForGPMField = getFiltersForGPMField;
-// exports.getFiltersForRCOTowerField = getFiltersForRCOTowerField;
-// exports.getFiltersForRCOSubTowerField = getFiltersForRCOSubTowerField;
-// exports.getFiltersForProcessIDField = getFiltersForProcessIDField;`
-// console.log(getScriptExports(b));

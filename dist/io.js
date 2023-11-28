@@ -146,7 +146,7 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
         // ...generatedViews.map(view => `${pathToViews}/${view.name}.jsx`), TODO: uncomment when types for jsx is created
     ]);
     const conf = {
-        ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true,
+        ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.Node16, noEmit: true, allowJs: true, checkJs: true,
         jsx: 'react-jsx',
     };
     await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));

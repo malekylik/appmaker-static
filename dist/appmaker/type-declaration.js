@@ -32,7 +32,7 @@ function generateTypeDeclarationFile(views, viewFragments, models, scripts) {
         if (view.customProperties.length > 0) {
             const propertiesTypeName = view.isViewFragment ? (0, generate_utils_1.getNameForViewFragmentProperties)(view.name) : (0, generate_utils_1.getNameForViewProperties)(view.name);
             if (typeArguments.length === 0) {
-                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('null')));
+                typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier('unknown')));
             }
             typeArguments.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(propertiesTypeName)));
         }
