@@ -14,11 +14,15 @@ declare interface RecordQuery <T extends Record<string, unknown> = Record<string
   sortBy: Array<[fieldPath: string, ascending?: boolean]>;
 }
 
+type QueryRecordFilters<T extends ModelNames> = {
+  [K in keyof ModelNamesToModelTypeMap[T]]?: { eq?: NonNullable<ModelNamesToModelTypeMap[T][K]>; in?: NonNullable<Array<ModelNamesToModelTypeMap[T][K] | null>>; };
+}
+
 // Passed by user to DataService methods
 declare interface QueryRecord<T extends ModelNames> {
   model: T;
 
-  filters?: Record<string, unknown> | undefined;
+  filters?: QueryRecordFilters<T> | undefined;
   // asc - default option if ascending is not defined
   sortBy?: Array<[fieldPath: string, ascending?: boolean]>;
   prefetch?: Array<ModelNames>;
