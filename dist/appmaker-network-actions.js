@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
@@ -70,23 +70,120 @@ var CommnadId;
 (function (CommnadId) {
     CommnadId[CommnadId["paste"] = 22] = "paste";
 })(CommnadId || (CommnadId = {}));
-async function changeScriptFile(page, xsrfToken, login, fileKey, commandNumber, prevContent, content) {
-    const res = await page.evaluate((xsrfToken, login, commandNumber, prevContent, content) => {
+// {
+//   "response": [{
+//     "changeScriptCommand": {
+//       "key": {
+//         "applicationKey": "KIx47x0MqU",
+//         "localKey": "KvnDexb6pseSmosN462IoKCbff76H6ts"
+//       },
+//       "scriptChange": {
+//         "lengthAfter": 1467,
+//         "lengthBefore": 1466,
+//         "modifications": [{
+//           "length": 26,
+//           "type": "SKIP"
+//         }, {
+//           "length": 1,
+//           "text": "1",
+//           "type": "INSERT"
+//         }, {
+//           "length": 1440,
+//           "type": "SKIP"
+//         }]
+//       },
+//       "sequenceNumber": "4291"
+//     }
+//   }]
+// }
+// res { response: [ { addModelDataSourceCommand: [Object] } ] }
+// string application_key = 1;
+// // TODO(b/171309255): add comments.
+// int64 sequence_number = 2;
+async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
+    const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
         const body = {
-            "1": `${login}:1685428865:1666365626171`,
-            "2": { "22": { "1": { "1": "RdeRXXpJpD", "2": { "1": fileKey } },
-                    "2": { "1": content.length, "2": prevContent.length,
-                        "3": [{
-                                "1": prevContent.length,
-                                "2": { "1": prevContent }, "3": 3
-                            }, { "1": content.length, "2": { "1": content }, "3": 2 }] }, "3": "0" } },
-            "3": commandNumber
+            "1": _appKey,
+            "2": _commandNumber
         };
         const payload = {
             method: 'POST',
             headers: {
-                'content-type': 'application/jspblite2',
+                'content-type': 'application/jspblite2', // check what the type
                 'x-framework-xsrf-token': xsrfToken,
+            },
+            body: JSON.stringify(body),
+        };
+        return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', payload)
+            .then(r => r.body)
+            .then((rb) => {
+            const reader = rb.getReader();
+            return new ReadableStream({
+                start(controller) {
+                    // The following function handles each data chunk
+                    function push() {
+                        // "done" is a Boolean and value a "Uint8Array"
+                        reader.read().then(({ done, value }) => {
+                            // If there is no more data to read
+                            if (done) {
+                                console.log('done', done);
+                                controller.close();
+                                return;
+                            }
+                            // Get the data and send it to the browser via the controller
+                            controller.enqueue(value);
+                            // Check chunks by logging to the console
+                            console.log(done, value);
+                            push();
+                        });
+                    }
+                    push();
+                },
+            });
+        })
+            .then((stream) => 
+        // Respond with our stream
+        new Response(stream, { headers: { 'Content-Type': 'application/zip' } }).blob())
+            .then(blob => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsBinaryString(blob);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject('Error occurred while reading binary string');
+        }));
+    }, xsrfToken, appKey, currentCommandNumber);
+    const parsedRes = JSON.parse(res);
+    return parsedRes;
+}
+exports.retrieveCommands = retrieveCommands;
+async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) {
+    console.log('changeScriptFile commandNumber', commandNumber);
+    console.log('changeScriptFile xsrfToken', xsrfToken);
+    console.log('changeScriptFile fileKey', fileKey);
+    const res = await page.evaluate((_xsrfToken, _appId, _login, _fileKey, _commandNumber, _prevContent, _content) => {
+        const body = {
+            "1": `${_login}:-906270374:1702911393847`, // dont know numbers
+            "2": {
+                "22": {
+                    "1": {
+                        "1": _appId,
+                        "2": { "1": 'z5c8syerDFnO7gio9jyNcqsG86WPymNC' }
+                    },
+                    "2": { "1": _content.length, "2": _prevContent.length,
+                        "3": [
+                            {
+                                "1": _prevContent.length,
+                                "2": { "1": _prevContent }, "3": 3
+                            }, { "1": _content.length, "2": { "1": _content }, "3": 2 }
+                        ] }, "3": "0"
+                }
+            },
+            "3": _commandNumber
+        };
+        const payload = {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/jspblite2', // check what the type
+                'x-framework-xsrf-token': _xsrfToken,
             },
             body: JSON.stringify(body),
         };
@@ -126,7 +223,7 @@ async function changeScriptFile(page, xsrfToken, login, fileKey, commandNumber, 
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => reject('Error occurred while reading binary string');
         }));
-    }, xsrfToken, login, commandNumber, prevContent, content);
+    }, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content);
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }

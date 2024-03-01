@@ -19,7 +19,7 @@ var ApplicationMode;
     ApplicationMode["remote"] = "remote";
     ApplicationMode["offline"] = "offline";
     ApplicationMode["interactive"] = "interactive";
-})(ApplicationMode = exports.ApplicationMode || (exports.ApplicationMode = {}));
+})(ApplicationMode || (exports.ApplicationMode = ApplicationMode = {}));
 function parseBrowserCommandLineArgs(options) {
     const { headless } = options;
     const browserOptions = {

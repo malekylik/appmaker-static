@@ -655,6 +655,41 @@ declare interface MultiSelectBox<D = unknown> extends EnableableWidget,
   values: List<unknown>;
 }
 
+/** Date constraints for a Widget. */
+declare interface DateConstraints {
+  /** The maximum value of the date inclusive. */
+  maxValue: Date;
+
+  /** The minimum value of the date inclusive. */
+  minValue: Date;
+
+  /** Whether a value is required or it can be missing. */
+  required: boolean;
+}
+
+/** A text box that when entered pops up a date picker. */
+declare interface DateTextBox <D = unknown>
+  extends DateConstraints,
+    FocusableWidget,
+    HasEnabledValue<Date>,
+    HasPlaceholderWidget,
+    HasValueChangeEvents,
+    HasValueEditedEvents,
+    InputWidget<D> {
+  /** Focuses this widget. */
+  focus(): void;
+
+  /**
+   * A pattern describing how dates should be formatted in the text box. The
+   * pattern used is defined by the Dart DateFormat
+   * <https://pub.dev/documentation/intl/latest/intl/DateFormat-class.html>
+   * class. The pattern must include the year, day, and month and nothing else.
+   * Otherwise there may be inconsistencies when the date picker is used since
+   * the date picker only specifies the year, month, and day.
+   */
+  format: string;
+}
+
 declare type User = {
   email: string;
   groups: List<string>;

@@ -283,7 +283,7 @@ export function generateWidgetEventsSourceFile(views: Array<View>): string {
         [], undefined, funcName,
         [],
         // TODO: add check if the args are used in the func
-        agrs.map(name => ts.factory.createParameterDeclaration([], undefined, undefined, name)),
+        agrs.map(name => ts.factory.createParameterDeclaration([], undefined, name)),
         undefined, functionBody));
 
         statements.push(

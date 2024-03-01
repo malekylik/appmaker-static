@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
-import { ActionPropery, AppMakerVarType, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery, WidgetStyleNamePropery } from '../appmaker';
+import { ActionPropery, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery, WidgetStyleNamePropery } from '../appmaker';
+import { AppMakerVarType } from '../functional/appmaker/appmaker-domain';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;

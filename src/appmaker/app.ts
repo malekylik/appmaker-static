@@ -4,6 +4,8 @@ import { generateDataserviceSourceFile, generateTypeDeclarationFile } from './ty
 import { generateDatasourceSourceFile, generateWidgetEventsSourceFile } from './script-file';
 import { getIsRootComponent, getIsViewFragment, getScriptExports, getViewBindings, getViewName } from './generate-utils';
 import { generateJSXForViews } from './views-generating';
+import { createCustomWidgetMap } from '../functional/appmaker/appmaker-view-utils';
+import type { AppMakerView, AppMakerViewStruct } from '../functional/appmaker/appmaker-domain';
 
 export interface Model {
   name: string; fields: Array<{ name: string; type: string; required: boolean; autoIncrement: boolean }>; dataSources: Array<DataSource>;
@@ -35,11 +37,14 @@ type NormilizedCustomPanel = {
 
 // TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 export class App {
+  // TODO: replace with newViews
   private views: Array<View> = [];
+  private newViews: Array<AppMakerView> = [];
   private models: Array<Model> = [];
   private scripts: Array<Script> = [];
 
   private customComponentKeyMap = new Map<string, string>();
+  private customWidgetMap = new Map<string, AppMakerView>();
 
   addView(view: View) {
     if (view.isViewFragment) {
@@ -48,6 +53,18 @@ export class App {
     }
 
     this.views.push(view);
+  }
+
+  addNewView(view: AppMakerView) {
+    // TODO: add to customWidgetMap
+  
+    this.newViews.push(view);
+  }
+
+  addNewViews(views: Array<AppMakerView>) {
+    this.newViews = this.newViews.concat(views);
+
+    this.customWidgetMap = createCustomWidgetMap(this.newViews);
   }
 
   addModel(model: Model) {
@@ -78,10 +95,7 @@ export class App {
   }
 
   generateJSXForViews(): Array<{ name: string; code: string; }> {
-    // TODO: remove
-    // console.log('generateJSXForViews map', this.customComponentKeyMap);
-
-    return generateJSXForViews(this.views);
+    return generateJSXForViews(this.newViews, this.customWidgetMap);
   }
 }
 
@@ -95,7 +109,7 @@ function parseModelField(fields: ModelFile['model']['field']): Model['fields'] {
   });
 }
 
-export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent, scriptsFiles: AppMakerScriptFolderContent): void {
+export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderContent, viewsFiles: AppMakerViewFolderContent, scriptsFiles: AppMakerScriptFolderContent, newViews: Array<AppMakerViewStruct>): void {
   modelsFiles.forEach((modelFile) => {
     const file = modelFile.file;
 
@@ -141,4 +155,6 @@ export function initAppMakerApp(app: App, modelsFiles: AppMakerModelFolderConten
 
     app.addScript(script);
   });
+
+  app.addNewViews(newViews.map(v => v.component));
 }

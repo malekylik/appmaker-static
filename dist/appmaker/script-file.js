@@ -206,7 +206,7 @@ function generateWidgetEventsSourceFile(views) {
                 ], true);
                 statements.push(ts.factory.createFunctionDeclaration([], undefined, funcName, [], 
                 // TODO: add check if the args are used in the func
-                agrs.map(name => ts.factory.createParameterDeclaration([], undefined, undefined, name)), undefined, functionBody));
+                agrs.map(name => ts.factory.createParameterDeclaration([], undefined, name)), undefined, functionBody));
                 statements.push(ts.factory.createExpressionStatement(ts.factory.createBinaryExpression(ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier('exports'), funcName), ts.SyntaxKind.EqualsToken, funcName)));
             });
             statements.push(ts.factory.createIdentifier('\n'));
