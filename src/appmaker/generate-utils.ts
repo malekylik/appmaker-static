@@ -1,5 +1,6 @@
 import * as ts from 'typescript';
 import { ActionPropery, BindingsPropery, ChildrenPropery, DataSource, DataSourceWithParams, DataSourceWithProperties, IsCustomWidgetPropery, IsRootPropery, ViewBinding, ViewChildren, ViewFile, ViewProperty, WidgetClass, WidgetNamePropery, WidgetStyleNamePropery } from '../appmaker';
+import { AppMakerVarType } from '../functional/appmaker/appmaker-domain';
 
 export function hexHtmlToString(str: string): string {
   const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -16,7 +17,7 @@ export function createLiteralTypeProperty(name: string, type: ts.TypeNode): ts.P
     [], name, undefined, type);
 }
 
-export function converAppMakerPropertyTypeToTSType(type: string): string {
+export function converAppMakerPropertyTypeToTSType(type: AppMakerVarType | string): string {
   switch(type) {
     case 'Number': return 'number';
     case 'String': return 'string';
@@ -33,6 +34,32 @@ export function converAppMakerPropertyTypeToTSType(type: string): string {
 
   return type;
 }
+
+export function stringifyAppMakerProperty(type: AppMakerVarType, value: unknown): string {
+  if (type === 'String' || type === 'AppChildKey') {
+    return '`' + String(value) + '`';
+  }
+
+  return String(value);
+}
+
+// export function converAppMakerPropertyToValue(type: AppMakerVarType | string, value: unknown): unknown {
+//   switch(type) {
+//     case 'Number': return Number(value);
+//     case 'String': return String(value);
+//     case 'Boolean': return value === 'true' ? true : false;
+//     case 'Date': return 'Date';
+
+//     case 'List[Number]': return 'List<number>';
+//     case 'List[String]': return 'List<string>';
+//     case 'List[Boolean]': return 'List<boolean>';
+//     case 'List[Date]': return 'List<Date>';
+
+//     case 'Dynamic': return 'unknown';
+//   }
+
+//   return type;
+// }
 
 export function isAppMakerListType(type: string): boolean {
   if (
@@ -132,7 +159,11 @@ export const getViewName = (properties: Array<ViewProperty>): string => (getView
 export const getIsViewFragment = (properties: Array<ViewProperty>): boolean => !!(getViewProperty(properties, 'isCustomWidget') as IsCustomWidgetPropery | undefined)?.['#text'];
 export const getViewChildren = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'children') as ChildrenPropery | undefined)?.['component'];
 export const getIsRootComponent = (properties: Array<ViewProperty>): boolean => (getViewProperty(properties, 'isRootComponent') as IsRootPropery | undefined)?.['#text'] ?? false;
-export const getViewBindings = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'bindings') as BindingsPropery | undefined);
+export const getViewBindings = (properties: Array<ViewProperty>): ViewBinding[] => {
+  const _bindings = (getViewProperty(properties, 'bindings') as BindingsPropery | undefined);
+
+  return _bindings?.binding ? (Array.isArray(_bindings.binding) ? _bindings.binding : [_bindings.binding]) : [];
+};
 // TODO: check for it also inside bindings
 export const getViewStyleName = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'styleName') as WidgetStyleNamePropery | undefined);
 export const getViewVisible = (properties: Array<ViewProperty>) => (getViewProperty(properties, 'visible') as WidgetStyleNamePropery | undefined);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.traverseView = exports.traverseViewChildren = exports.getOnUnload = exports.getOnDataLoad = exports.getOnLoad = exports.getOnClick = exports.getOnValueEdit = exports.getOnValuesChange = exports.getOnChange = exports.getOnValidate = exports.getViewCss = exports.getViewEnabled = exports.getViewVisible = exports.getViewStyleName = exports.getViewBindings = exports.getIsRootComponent = exports.getViewChildren = exports.getIsViewFragment = exports.getViewName = exports.getViewProperty = exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
+exports.traverseView = exports.traverseViewChildren = exports.getOnUnload = exports.getOnDataLoad = exports.getOnLoad = exports.getOnClick = exports.getOnValueEdit = exports.getOnValuesChange = exports.getOnChange = exports.getOnValidate = exports.getViewCss = exports.getViewEnabled = exports.getViewVisible = exports.getViewStyleName = exports.getViewBindings = exports.getIsRootComponent = exports.getViewChildren = exports.getIsViewFragment = exports.getViewName = exports.getViewProperty = exports.isDataSourceContainsProperties = exports.isDataSourceContainsParams = exports.getNameForViewFragmentProperties = exports.getNameForViewProperties = exports.getNameForViewFragment = exports.getNameForView = exports.getNameForDataSourceProperties = exports.getNameForDataSourceParams = exports.getDataSourceNameFromBinding = exports.getDataSourceViewBinding = exports.getViewBinding = exports.getScriptExports = exports.getTypeForProperties = exports.isAppMakerListType = exports.stringifyAppMakerProperty = exports.converAppMakerPropertyTypeToTSType = exports.createLiteralTypeProperty = exports.getModelName = exports.hexHtmlToString = void 0;
 const ts = require("typescript");
 function hexHtmlToString(str) {
     const REG_HEX = /&#x([a-fA-F0-9]+);/g;
@@ -31,6 +31,27 @@ function converAppMakerPropertyTypeToTSType(type) {
     return type;
 }
 exports.converAppMakerPropertyTypeToTSType = converAppMakerPropertyTypeToTSType;
+function stringifyAppMakerProperty(type, value) {
+    if (type === 'String' || type === 'AppChildKey') {
+        return '`' + String(value) + '`';
+    }
+    return String(value);
+}
+exports.stringifyAppMakerProperty = stringifyAppMakerProperty;
+// export function converAppMakerPropertyToValue(type: AppMakerVarType | string, value: unknown): unknown {
+//   switch(type) {
+//     case 'Number': return Number(value);
+//     case 'String': return String(value);
+//     case 'Boolean': return value === 'true' ? true : false;
+//     case 'Date': return 'Date';
+//     case 'List[Number]': return 'List<number>';
+//     case 'List[String]': return 'List<string>';
+//     case 'List[Boolean]': return 'List<boolean>';
+//     case 'List[Date]': return 'List<Date>';
+//     case 'Dynamic': return 'unknown';
+//   }
+//   return type;
+// }
 function isAppMakerListType(type) {
     if (type === 'List[Number]' ||
         type === 'List[String]' ||
@@ -125,7 +146,10 @@ const getViewChildren = (properties) => (0, exports.getViewProperty)(properties,
 exports.getViewChildren = getViewChildren;
 const getIsRootComponent = (properties) => (0, exports.getViewProperty)(properties, 'isRootComponent')?.['#text'] ?? false;
 exports.getIsRootComponent = getIsRootComponent;
-const getViewBindings = (properties) => (0, exports.getViewProperty)(properties, 'bindings');
+const getViewBindings = (properties) => {
+    const _bindings = (0, exports.getViewProperty)(properties, 'bindings');
+    return _bindings?.binding ? (Array.isArray(_bindings.binding) ? _bindings.binding : [_bindings.binding]) : [];
+};
 exports.getViewBindings = getViewBindings;
 // TODO: check for it also inside bindings
 const getViewStyleName = (properties) => (0, exports.getViewProperty)(properties, 'styleName');

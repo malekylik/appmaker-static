@@ -10,7 +10,9 @@ function lint(code, config, fileName) {
 }
 exports.lint = lint;
 function checkTypes(filesToCheck, tsConfig) {
-    const conf = { ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.NodeJs, noEmit: true, allowJs: true, checkJs: true };
+    const conf = { ...tsConfig.compilerOptions,
+        moduleResolution: ts.ModuleResolutionKind.Classic,
+        noEmit: true, allowJs: true, checkJs: true };
     let program = ts.createProgram(filesToCheck, conf);
     let emitResult = program.emit();
     let allDiagnostics = ts

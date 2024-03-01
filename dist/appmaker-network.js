@@ -36,12 +36,28 @@ exports.isAppPage = isAppPage;
 async function auth(page, credentials) {
     console.log('auth routine');
     console.log('fill credits');
+    let isUserNameFilled = true;
+    let isUserPasswordFilled = true;
     // TODO: what if credentials have already been provided and only touch is left
-    await page.$eval("#username", (element, login) => element.value = login, credentials.login);
-    await page.$eval("#password", (element, password) => element.value = password, credentials.password);
+    try {
+        await page.$eval("#username", (element, login) => element.value = login, credentials.login);
+    }
+    catch {
+        isUserNameFilled = false;
+    }
+    try {
+        await page.$eval("#password", (element, password) => element.value = password, credentials.password);
+    }
+    catch {
+        isUserPasswordFilled = false;
+    }
     await new Promise(res => setTimeout(res, 2000));
     const submitElement = await page.$('#signInButton');
     if (!isAppPage(page.url())) {
+        return;
+    }
+    if (!isUserNameFilled && !isUserPasswordFilled) {
+        console.log('Couldnt find both name and password fields. Skip auth');
         return;
     }
     console.log('click');
@@ -89,7 +105,7 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         await new Promise(res => setTimeout(res, 2000));
         console.log('newPage');
         // TODO: not always wait correctly
-        await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, { waitUntil: 'networkidle2' });
+        await page.goto(`https://appmaker.googleplex.com/edit/${applicationId}`, { waitUntil: 'networkidle2', timeout: 60000 });
         if (isAuthPage(page.url())) {
             await auth(page, credentials);
         }

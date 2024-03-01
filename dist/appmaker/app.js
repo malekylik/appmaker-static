@@ -5,14 +5,32 @@ const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
 const views_generating_1 = require("./views-generating");
+const appmaker_view_utils_1 = require("../functional/appmaker/appmaker-view-utils");
+// TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 class App {
     constructor() {
+        // TODO: replace with newViews
         this.views = [];
+        this.newViews = [];
         this.models = [];
         this.scripts = [];
+        this.customComponentKeyMap = new Map();
+        this.customWidgetMap = new Map();
     }
     addView(view) {
+        if (view.isViewFragment) {
+            this.customComponentKeyMap.set(view.key, view.name);
+            this.customComponentKeyMap.set(view.name, view.key);
+        }
         this.views.push(view);
+    }
+    addNewView(view) {
+        // TODO: add to customWidgetMap
+        this.newViews.push(view);
+    }
+    addNewViews(views) {
+        this.newViews = this.newViews.concat(views);
+        this.customWidgetMap = (0, appmaker_view_utils_1.createCustomWidgetMap)(this.newViews);
     }
     addModel(model) {
         this.models.push(model);
@@ -35,7 +53,7 @@ class App {
         return (0, script_file_1.generateWidgetEventsSourceFile)(this.views);
     }
     generateJSXForViews() {
-        return (0, views_generating_1.generateJSXForViews)(this.views);
+        return (0, views_generating_1.generateJSXForViews)(this.newViews, this.customWidgetMap);
     }
 }
 exports.App = App;
@@ -46,7 +64,7 @@ function parseModelField(fields) {
         return ({ ...field, required: strToBool(field.required), autoIncrement: strToBool(field.autoIncrement) });
     });
 }
-function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
+function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles, newViews) {
     modelsFiles.forEach((modelFile) => {
         const file = modelFile.file;
         const model = {
@@ -64,13 +82,11 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
             key: file.component.key,
             class: file.component.class,
             isViewFragment: (0, generate_utils_1.getIsViewFragment)(file.component.property),
-            isRootComponent: (0, generate_utils_1.getIsRootComponent)(file.component.property),
+            isRootComponent: (0, generate_utils_1.getIsRootComponent)(file.component.property), // for some reason it can be omited by AppMaker
             customProperties: file.component.customProperties?.property
                 ? (Array.isArray(file.component.customProperties.property) ? file.component.customProperties.property : [file.component.customProperties.property])
                 : [],
-            bindings: bindings && bindings.binding
-                ? (Array.isArray(bindings.binding) ? bindings.binding : [bindings.binding])
-                : [],
+            bindings: bindings,
             file: file,
         };
         app.addView(view);
@@ -85,5 +101,6 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles) {
         };
         app.addScript(script);
     });
+    app.addNewViews(newViews.map(v => v.component));
 }
 exports.initAppMakerApp = initAppMakerApp;

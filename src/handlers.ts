@@ -4,18 +4,23 @@ import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
 import { auth, app, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
-import { generateJSProjectForAppMaker, getModelsNames, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
+import { generateJSProjectForAppMaker, getModelsNames, getPathToViews, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
+import { readAppMakerViews as readAppMakerViewsF } from './functional/io/appmaker-io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
-import { getCommandNumberFromApp, takeScreenshoot } from './appmaker-network-actions';
+import { changeScriptFile, getCommandNumberFromApp, getXSRFToken, retrieveCommands, takeScreenshoot } from './appmaker-network-actions';
 import { stdin } from 'node:process';
 
-const { stat: oldStat, rm: oldRm, readdir: oldReaddir } = require('fs');
-const { promisify } = require('util');
+import { stat as oldStat, rm as oldRm, readdir as oldReaddir, watch, lstatSync, readFile as oldReadFile } from 'node:fs';
+import { promisify } from 'node:util';
+import { pipe } from 'fp-ts/lib/function';
+
+import * as E from 'fp-ts/lib/Either';
 
 const rm = promisify(oldRm);
+const readdir = promisify(oldReaddir);
+const readFile = promisify(oldReadFile);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
-const readdir = promisify(oldReaddir);
 
 export async function postOfflineZipActionsHandler(pathToProject: string, outDir: string) {
   console.log('post actions');
@@ -54,15 +59,25 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
     getViewsNames(passedPath),
   ]);
 
-  const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
+  const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
     readAppMakerScripts(passedPath, scriptsNames),
     readAppMakerModels(passedPath, modelsNames),
     readAppMakerViews(passedPath, viewsNames),
+
+    readAppMakerViewsF(getPathToViews(passedPath))(),
   ]);
+
+  // const 
 
   const app = new App();
 
-  initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles);
+  pipe(
+    newViewFiles,
+    E.match(
+      e => initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles, []),
+      views => initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles, views),
+    )
+  )
 
   const pathToGenerateJSProjectDir = outDir;
 
@@ -181,15 +196,35 @@ enum InteractiveModeCommands {
   listFiles = 'ls',
   export = 'export',
   screenshot = 'screenshot',
+  update = 'update',
 }
 
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
   console.log('interactive');
 
+  let filesName = (await readdir(options.outDir))
+    .filter(name => name[0] !== '.')
+    .filter(name => name.slice(0, 2) !== '__')
+    .filter(name => !lstatSync(path.join(options.outDir, name)).isDirectory())
+    .filter(name => name.split('.')[name.split('.').length - 1] === 'js');
+  let files = await (Promise.all(
+    filesName.map(name => readFile(path.join(options.outDir, name), 'utf-8')
+      .then(content => {
+        return ({
+          content,
+          name,
+          path: path.join(options.outDir, name)
+        });
+      }))
+  )) as Array<{ content: string, name: string, path: string }>;
+
+  // console.log('files', files);
+
   let browser = await openBrowser({ headless: false });
 
   let page: puppeteer.Page | null = null;
   let commandNumber = '';
+  let xsrfToken = '';
   let generatedFiles: Array<string> = [];
 
   let _app = new App();
@@ -226,6 +261,8 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
     } else {
       throw new Error('unknown page: taking screen');
     }
+
+    xsrfToken = await getXSRFToken(page);
 
   } catch (e) {
     console.log('error: taking screen', e);
@@ -287,7 +324,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
         ]);
       
       
-        initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles);
+        initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles, []);
       
         const pathToGenerateJSProjectDir = options.outDir;
       
@@ -302,10 +339,74 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       } catch (e) {
         console.log(`${InteractiveModeCommands.screenshot} failed with error: `, e);
       }
+    } else if (command === InteractiveModeCommands.update) {
+      console.log('update');
     } else {
       console.log('unknown command', command);
     }
   }
+
+  const buttonPressesLogFile = options.outDir;
+
+  console.log(`Watching for file changes on ${buttonPressesLogFile}`);
+
+  let fsWait: any = false;
+  watch(buttonPressesLogFile, (event, filename) => {
+    if (filename) {
+      if (fsWait) return;
+      fsWait = setTimeout(() => {
+        fsWait = false;
+      }, 1000);
+      console.log(`${filename} file Changed`);
+      console.log('event', event);
+
+      const file = files.find(f => f.name === filename);
+
+      if (file) {
+        readFile(file.path, 'utf-8')
+          .then((newContent) => {
+            const name = file.name.split('.').slice(0, file.name.split('.').length - 1).join('.');
+            console.log('name', name, file.name);
+            const p = changeScriptFile(page!, xsrfToken, options.appId, options.credentials.login, name, commandNumber, file.content, newContent);
+
+            file.content = newContent;
+
+            return p;
+          })
+          .then(done => {
+            console.log('done', done);
+          })
+      } else {
+        console.log('Couldt find file with name', filename);
+      }
+    }
+  });
+
+  let pr: Promise<unknown> | null = null;
+
+  async function checkForCommandNumber() {
+    if (pr !== null) {
+      return;
+    }
+
+    pr = retrieveCommands(page!, xsrfToken, options.appId, commandNumber);
+
+    const _commandNumber = await pr;
+
+    pr = null;
+
+    // console.log('res', _commandNumber);
+    // console.log('current Command', commandNumber);
+
+    if ((_commandNumber as any).response) {
+      // console.log(`Command number changed. Prev: ${_commandNumber.response[0].changeScriptCommand.sequenceNumber }. Current: ${commandNumber}`);
+      // commandNumber = _commandNumber.response[0].changeScriptCommand.sequenceNumber ;
+      console.log('Your application is out-of-day, please reload');
+      console.log('res', _commandNumber);
+    }
+  }
+
+  setInterval(checkForCommandNumber, 5000);
 
   stdin.on('data', callback);
 }

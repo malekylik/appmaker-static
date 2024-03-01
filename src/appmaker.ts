@@ -7,6 +7,17 @@ export interface ScriptFile {
   };
 }
 
+export type AppMakerVarType = 'Number'
+  | 'String'
+  | 'Boolean'
+  | 'Date'
+  | 'List[Number]'
+  | 'List[String]'
+  | 'List[Boolean]'
+  | 'List[Date]'
+  | 'AppChildKey' // key of custom ViewFragment
+  | 'Dynamic';
+
 export type DataSourceParam = { name: string; type: string; isNull: 'true' | 'false'; };
 export type DataSourceProperty = { name: string; type: string; };
 
@@ -70,11 +81,11 @@ export type ViewBinding = {
 
 export type ChildrenPropery = { name: 'children'; type: string; '#text'?: string; component: Array<ViewChildren> | ViewChildren; };
 export type IsCustomWidgetPropery = { name: 'isCustomWidget'; '#text': string };
-export type WidgetNamePropery = { name: 'name'; '#text': string; };
-export type WidgetStyleNamePropery = { name: 'styleName'; '#text'?: string; };
+export type WidgetNamePropery = { name: 'name'; '#text': string; type: AppMakerVarType };
+export type WidgetStyleNamePropery = { name: 'styleName'; '#text'?: string; type: AppMakerVarType };
 export type WidgetVisiblePropery = { name: 'visible'; '#text'?: string; };
 export type WidgetEnabledPropery = { name: 'enabled'; '#text'?: string; };
-export type WidgetCssPropery = { name: 'css'; '#text'?: string; };
+export type WidgetCssPropery = { name: 'css'; '#text'?: string; type: AppMakerVarType };
 export type BindingsPropery = {
   name: 'bindings';
   binding?: ViewBinding | Array<ViewBinding>;
@@ -87,7 +98,7 @@ export type ActionPropery = { name: ActionType; '#text'?: string; isNull: true; 
 // customProperties
 
 export type ViewProperty =
-    ChildrenPropery
+  (  ChildrenPropery
   | IsCustomWidgetPropery
   | WidgetNamePropery
   | BindingsPropery
@@ -96,7 +107,7 @@ export type ViewProperty =
   | WidgetStyleNamePropery
   | WidgetVisiblePropery
   | WidgetEnabledPropery
-  | WidgetCssPropery;
+  | WidgetCssPropery) & { isNull?: true; type: AppMakerVarType };
 
 export interface ViewFile {
   component: {

@@ -2,6 +2,7 @@ import { QueryDataSource, ViewProperty, WidgetClass } from '../appmaker';
 import * as ts from 'typescript';
 import type { Model, View } from './app';
 import {
+  getModelName,
   getNameForDataSourceParams, getNameForDataSourceProperties, getOnChange, getOnClick, getOnDataLoad, getOnLoad, getOnUnload, getOnValidate, getOnValueEdit, getOnValuesChange, getViewName, hexHtmlToString,
   isDataSourceContainsParams, isDataSourceContainsProperties, traverseView
 } from './generate-utils';
@@ -9,44 +10,67 @@ import {
 export function generateDatasourceSourceFile(models: Array<Model>): string {
   const getFunctionName = (modelName: string, datasource: string): string => `${modelName}_${datasource}`;
 
-  const statements: Array<ts.Node> = models.flatMap(model => model.dataSources.filter((datasource): datasource is QueryDataSource => datasource.type === 'QUERY' && datasource.customQuery !== undefined && datasource.customQuery.length !== 0).flatMap((datasource) => {
+  let statements: Array<ts.Node> = models.flatMap(model => model.dataSources.filter((datasource): datasource is QueryDataSource => datasource.type === 'QUERY' && datasource.customQuery !== undefined && datasource.customQuery.length !== 0).flatMap((datasource) => {
     const queryScript = hexHtmlToString(datasource.customQuery ?? '');
     const isQueryObjectUsed = /query/.test(queryScript);
     const functionParams = isQueryObjectUsed ? [ts.factory.createParameterDeclaration([], undefined, 'query', undefined)] : [];
     const functionBody = ts.factory.createBlock([
-      ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
+      // ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
       ts.factory.createExpressionStatement(ts.factory.createIdentifier(queryScript)),
-      ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
-    ]);
+      // ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
+    ], true);
 
     const statements: Array<ts.Node> = [];
 
     if (isQueryObjectUsed) {
       if (isDataSourceContainsParams(datasource)) {
-        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceParams(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
-      } if (isDataSourceContainsProperties(datasource)) {
-        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceProperties(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
+        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceParams(model.name, datasource.name)}>} query\n@returns {Array<${getModelName(model.name)}>}`));
+      } else if (isDataSourceContainsProperties(datasource)) {
+        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceProperties(model.name, datasource.name)}>} query\n@returns {Array<${getModelName(model.name)}>}`));
       } else {
-        statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query\n@returns {Array<unknown>}'));
+        statements.push(ts.factory.createJSDocComment(`@param {RecordQuery} query\n@returns {Array<${getModelName(model.name)}>}`));
       }
     }
 
+    // TODO: change to classic export style
     statements.push(ts.factory.createFunctionDeclaration(
-      [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], undefined, ts.factory.createIdentifier(getFunctionName(model.name, datasource.name)), [], functionParams, undefined, functionBody));
+      [], undefined, ts.factory.createIdentifier(getFunctionName(model.name, datasource.name)), [], functionParams, undefined, functionBody));
+
+    statements.push(ts.factory.createIdentifier('\n'));
 
     return statements;
-  }))
+  }));
+
+  // statements.push(ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')));
+  statements.push(ts.factory.createIdentifier('\n'));
+
+  statements = statements.concat(models.flatMap(model => model.dataSources.filter((datasource): datasource is QueryDataSource => datasource.type === 'QUERY' && datasource.customQuery !== undefined && datasource.customQuery.length !== 0).flatMap((datasource) => {
+    const funcName = ts.factory.createIdentifier(getFunctionName(model.name, datasource.name));
+
+    return [
+      ts.factory.createExpressionStatement(
+        ts.factory.createBinaryExpression(
+          ts.factory.createPropertyAccessExpression(
+            ts.factory.createIdentifier('exports'),
+            funcName
+          ),
+          ts.SyntaxKind.EqualsToken,
+          funcName
+        )
+      )
+    ];
+  })));
 
   const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, omitTrailingSemicolon: true });
   const result = printer.printList(
     ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
     ts.factory.createNodeArray(statements), resultFile);
 
-  return result;
+  return '/* eslint-disable */\n' + result;
 }
 
-function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewProperty>): Array<[name: string, code: string, args: Array<string>]> {
+function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewProperty>): Array<[name: string, code: string, args: Array<string>, params: Array<[name: string, type: string]>]> {
   // TODO: add type generation for the args
   // TODO: add textfield generating
   const argsForOnLoad = ['widget'];
@@ -58,7 +82,7 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
   const argsForOnValueEdit = ['widget', 'newValue'];
   const argsForOnValuesChange = ['widget', 'newValues'];
 
-  const funcs: Array<[name: string, code: string, args: Array<string>]> = [];
+  const funcs: Array<[name: string, code: string, args: Array<string>, params: Array<[name: string, type: string]>]> = [];
 
   if (widgetClass === 'SimpleButton') {
     const onClick = getOnClick(properties);
@@ -68,19 +92,19 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onClick && onClick['#text']) {
-      funcs.push(['onClick', onClick['#text'], argsForOnClick]);
+      funcs.push(['onClick', onClick['#text'], argsForOnClick, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -92,19 +116,19 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onClick && onClick['#text']) {
-      funcs.push(['onClick', onClick['#text'], argsForOnClick]);
+      funcs.push(['onClick', onClick['#text'], argsForOnClick, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -116,19 +140,19 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onClick && onClick['#text']) {
-      funcs.push(['onClick', onClick['#text'], argsForOnClick]);
+      funcs.push(['onClick', onClick['#text'], argsForOnClick, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -143,27 +167,27 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onValidate && onValidate['#text']) {
-      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate]);
+      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate, []]);
     }
 
     if (onChange && onChange['#text']) {
-      funcs.push(['onChange', onChange['#text'], argsForOnValueChange]);
+      funcs.push(['onChange', onChange['#text'], argsForOnValueChange, []]);
     }
     
     if (onValueEdit && onValueEdit['#text']) {
-      funcs.push(['onValueEdit', onValueEdit['#text'], argsForOnValueEdit]);
+      funcs.push(['onValueEdit', onValueEdit['#text'], argsForOnValueEdit, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -177,27 +201,27 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onValidate && onValidate['#text']) {
-      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate]);
+      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate, []]);
     }
 
     if (onChange && onChange['#text']) {
-      funcs.push(['onChange', onChange['#text'], argsForOnValueChange]);
+      funcs.push(['onChange', onChange['#text'], argsForOnValueChange, []]);
     }
     
     if (onValueEdit && onValueEdit['#text']) {
-      funcs.push(['onValueEdit', onValueEdit['#text'], argsForOnValueEdit]);
+      funcs.push(['onValueEdit', onValueEdit['#text'], argsForOnValueEdit, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -210,23 +234,23 @@ function getWidgetEvents(widgetClass: WidgetClass, properties: Array<ViewPropert
     const onUnload = getOnUnload(properties);
 
     if (onValidate && onValidate['#text']) {
-      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate]);
+      funcs.push(['onValidate', onValidate['#text'], argsForOnValidate, []]);
     }
 
     if (onValuesChange && onValuesChange['#text']) {
-      funcs.push(['onValuesChange', onValuesChange['#text'], argsForOnValuesChange]);
+      funcs.push(['onValuesChange', onValuesChange['#text'], argsForOnValuesChange, []]);
     }
 
     if (onLoad && onLoad['#text']) {
-      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad]);
+      funcs.push(['onLoad', onLoad['#text'], argsForOnLoad, []]);
     }
 
     if (onDataLoad && onDataLoad['#text']) {
-      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad]);
+      funcs.push(['onDataLoad', onDataLoad['#text'], argsForOnDataLoad, []]);
     }
 
     if (onUnload && onUnload['#text']) {
-      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload]);
+      funcs.push(['onUnload', onUnload['#text'], argsForOnUnload, []]);
     }
   }
 
@@ -248,18 +272,32 @@ export function generateWidgetEventsSourceFile(views: Array<View>): string {
 
   if (events.length > 0) {
     events.forEach(([name, code, agrs]) => {
+      const funcName = ts.factory.createIdentifier(getFunctionName(viewsNames, name, widgetClass));
       const functionBody = ts.factory.createBlock([
-        ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
+        // ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
         ts.factory.createExpressionStatement(ts.factory.createIdentifier(code)),
-        ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
-      ]);
+        // ts.factory.createExpressionStatement(ts.factory.createIdentifier('\n')),
+      ], true);
 
       statements.push(ts.factory.createFunctionDeclaration(
-        [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], undefined, ts.factory.createIdentifier(getFunctionName(viewsNames, name, widgetClass)),
+        [], undefined, funcName,
         [],
         // TODO: add check if the args are used in the func
-        agrs.map(name => ts.factory.createParameterDeclaration([], undefined, undefined, name)),
+        agrs.map(name => ts.factory.createParameterDeclaration([], undefined, name)),
         undefined, functionBody));
+
+        statements.push(
+          ts.factory.createExpressionStatement(
+            ts.factory.createBinaryExpression(
+              ts.factory.createPropertyAccessExpression(
+                ts.factory.createIdentifier('exports'),
+                funcName
+              ),
+              ts.SyntaxKind.EqualsToken,
+              funcName
+            )
+          )
+        );
     });
 
     statements.push(ts.factory.createIdentifier('\n'));
@@ -270,32 +308,6 @@ function onExit() {
   viewsNames.pop();
 }
   
-  // models.flatMap(model => model.dataSources.filter((datasource): datasource is QueryDataSource => datasource.type === 'QUERY' && datasource.customQuery !== undefined && datasource.customQuery.length !== 0).flatMap((datasource) => {
-  //   const queryScript = hexHtmlToString(datasource.customQuery ?? '');
-  //   const isQueryObjectUsed = /query/.test(queryScript);
-  //   const functionParams = isQueryObjectUsed ? [ts.factory.createParameterDeclaration([], undefined, 'query', undefined)] : [];
-  //   const functionBody = ts.factory.createBlock([
-  //     ts.factory.createExpressionStatement(ts.factory.createIdentifier(queryScript))
-  //   ]);
-
-  //   const statements: Array<ts.Node> = [];
-
-  //   if (isQueryObjectUsed) {
-  //     if (isDataSourceContainsParams(datasource)) {
-  //       statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceParams(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
-  //     } if (isDataSourceContainsProperties(datasource)) {
-  //       statements.push(ts.factory.createJSDocComment(`@param {RecordQuery<${getNameForDataSourceProperties(model.name, datasource.name)}>} query\n@returns {Array<unknown>}`));
-  //     } else {
-  //       statements.push(ts.factory.createJSDocComment('@param {RecordQuery} query\n@returns {Array<unknown>}'));
-  //     }
-  //   }
-
-  //   statements.push(ts.factory.createFunctionDeclaration(
-  //     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)], undefined, ts.factory.createIdentifier(getFunctionName(model.name, datasource.name)), [], functionParams, undefined, functionBody));
-
-  //   return statements;
-  // }))
-
   views.forEach(view => {
     statements.push(ts.factory.createJSDocComment(`Page: ${view.name}\n`));
 
@@ -308,5 +320,5 @@ function onExit() {
     ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
     ts.factory.createNodeArray(statements), resultFile);
 
-  return result;
+  return '/* eslint-disable */\n' + result;
 }
