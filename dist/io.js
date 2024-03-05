@@ -118,7 +118,7 @@ async function readAppMakerViews(pathToProject, modelsNames) {
     return viewFiles;
 }
 exports.readAppMakerViews = readAppMakerViews;
-async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfig, eslintConfig, app) {
+async function generateJSProjectForAppMaker(pathToProject, app) {
     try {
         await access(pathToProject, constants.F_OK);
         await rm(pathToProject, { recursive: true });
@@ -126,13 +126,13 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     catch { }
     await mkdir(pathToProject);
     const tsFilesToCheck = [];
-    for (let i = 0; i < scriptsFiles.length; i++) {
-        const { name, file } = scriptsFiles[i];
+    for (let i = 0; i < app.scripts.length; i++) {
+        const { name, code } = app.scripts[i];
         console.log(`-----${name}-----`);
-        if (file.script['#text']) {
-            const pathToFileTSFile = `${pathToProject}/${name.replace('.xml', '.js')}`;
+        if (code) {
+            const pathToFileTSFile = `${pathToProject}/${name}.js`;
             console.log(pathToFileTSFile);
-            await writeFile(pathToFileTSFile, file.script['#text']);
+            await writeFile(pathToFileTSFile, code);
             tsFilesToCheck.push(pathToFileTSFile);
         }
     }
@@ -145,12 +145,18 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
         `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/services.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`, `${pathToTypes}/userProvider.d.ts`
         // ...generatedViews.map(view => `${pathToViews}/${view.name}.jsx`), TODO: uncomment when types for jsx is created
     ]);
-    const conf = {
-        ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.Node16, noEmit: true, allowJs: true, checkJs: true,
-        jsx: 'react-jsx',
-    };
-    await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
-    await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
+    const tsConfig = app.getAppValidator().getTSConfig();
+    if (tsConfig) {
+        const conf = {
+            ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.Node16, noEmit: true, allowJs: true, checkJs: true,
+            jsx: 'react-jsx',
+        };
+        await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+    }
+    const eslintConfig = app.getAppValidator().getLintConfig();
+    if (eslintConfig) {
+        await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
+    }
     await mkdir(pathToTypes);
     await mkdir(pathToViews);
     await copyFile(`${__dirname.split('/').slice(0, __dirname.split('/').length - 1).join('/')}/src/appmaker/logger.d.ts`, `${pathToTypes}/logger.d.ts`);
@@ -163,20 +169,22 @@ async function generateJSProjectForAppMaker(pathToProject, scriptsFiles, tsConfi
     await writeFile(`${pathToProject}/__events.js`, app.generateWidgetEventsSourceFile());
     for (let i = 0; i < generatedViews.length; i++) {
         const view = generatedViews[i];
-        await writeFile(`${pathToViews}/${view?.name}.jsx`, view?.code);
+        // TODO: use path instead of view name
+        await writeFile(`${pathToViews}/${view.name}.jsx`, view.code);
     }
     return files;
 }
 exports.generateJSProjectForAppMaker = generateJSProjectForAppMaker;
-async function writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, pathToProject) {
+async function writeValidatedScriptsToAppMakerXML(app, lintingReport, pathToProject) {
     const promise = [];
-    for (let i = 0; i < scriptsFiles.length; i++) {
-        const { name, file } = scriptsFiles[i];
-        const report = lintingReport.find(report => report.name === name);
+    for (let i = 0; i < app.scripts.length; i++) {
+        const script = app.scripts[i];
+        const report = lintingReport.find(report => report.name === script.name);
         if (report) {
-            console.log('write fixed after linting file', name);
-            const res = (0, generate_1.generateResultXML)(file, report.report.output);
-            promise.push(writeFile(`${getPathToScrips(pathToProject)}/${name}`, res));
+            console.log('write fixed after linting file', script.name);
+            const res = (0, generate_1.generateResultXML)(script, report.report.output);
+            // TODO: path should come from script object
+            promise.push(writeFile(`${getPathToScrips(pathToProject)}/${script.name}.xml`, res));
         }
     }
     return Promise.all(promise);

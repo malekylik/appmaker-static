@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateResultXML = void 0;
-function generateResultXML(initXML, res) {
-    const prefix = '\n'; // Appmaker puts a new line in the begining of scipts
+function generateResultXML(script, res) {
+    const prefix = '\n'; // AppMaker puts a new line in the beginning of scripts
     return prefix +
-        (`<script key="${initXML.script.key}" type="${initXML.script.type}" name="${initXML.script.name}"><![CDATA[${res}]]></script>`);
+        (`<script key="${script.key}" type="${script.type}" name="${script.name}"><![CDATA[${res}]]></script>`);
 }
 exports.generateResultXML = generateResultXML;

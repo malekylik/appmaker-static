@@ -1,6 +1,7 @@
 import { Linter } from 'eslint';
 import * as ts from 'typescript';
-import { AppMakerScriptFolderContent, TSConfig } from './io';
+import { TSConfig } from './appmaker/app-validatior';
+import { App } from './appmaker/app';
 
 export function lint(code: string, config: Linter.Config<Linter.RulesRecord>, fileName?: string) {
   const linter = new Linter();
@@ -27,14 +28,14 @@ export function checkTypes(filesToCheck: Array<string>, tsConfig: TSConfig) {
 
 export type LintingReport = Array<{ name: string; report: Linter.FixReport }>;
 
-export function checkLinting(scriptsFiles: AppMakerScriptFolderContent, config: Linter.Config<Linter.RulesRecord>): LintingReport {
+export function checkLinting(app: App, config: Linter.Config<Linter.RulesRecord>): LintingReport {
   const report: LintingReport = [];
 
-  for (let i = 0; i < scriptsFiles.length; i++) {
-    const { name, file } = scriptsFiles[i]!;
+  for (let i = 0; i < app.scripts.length; i++) {
+    const { name, code } = app.scripts[i]!;
 
-    if (file.script['#text']) {
-      const _report = lint(file.script['#text'], config, name);
+    if (code) {
+      const _report = lint(code, config, name);
 
       report.push({
         name,
@@ -46,13 +47,13 @@ export function checkLinting(scriptsFiles: AppMakerScriptFolderContent, config: 
   return report;
 }
 
-export function checkForEmptyScriptsFiles(scriptsFiles: AppMakerScriptFolderContent): Array<string> {
+export function checkForEmptyScriptsFiles(app: App): Array<string> {
   const emptyScripts: string[] = [];
 
-  for (let i = 0; i < scriptsFiles.length; i++) {
-    const { name, file } = scriptsFiles[i]!;
+  for (let i = 0; i < app.scripts.length; i++) {
+    const { name, code } = app.scripts[i]!;
 
-    if (!file.script['#text']) {
+    if (!code) {
       emptyScripts.push(name);
     }
   }

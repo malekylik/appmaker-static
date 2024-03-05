@@ -1,4 +1,3 @@
-// import { getScriptExports } from './appmaker/generate-utils';
 import { ApplicationMode, parseCommandLineArgs } from './command-line';
 import { handleInteractiveApplicationMode, handleOfflineApplicationMode, handleRemoteApplicationMode } from './handlers';
 

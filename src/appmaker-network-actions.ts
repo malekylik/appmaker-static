@@ -278,6 +278,11 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
   return parsedRes;
 }
 
+/**
+ * @param applicationId
+ * @param xsrfToken
+ * @returns result of exported AppMaker project as a string
+ */
 export function exportProject (applicationId: string, xsrfToken: string): Promise<string> {
   return fetch('https://appmaker.googleplex.com/_am/exportApp', {
     method: 'POST',

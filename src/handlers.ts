@@ -3,14 +3,14 @@ import * as puppeteer from 'puppeteer';
 import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
-import { auth, app, callAppMakerApp, isAppPage, isAuthPage, openBrowser } from './appmaker-network';
+import { callAppMakerApp, runInApplicationPageContext } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getPathToViews, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { readAppMakerViews as readAppMakerViewsF } from './functional/io/appmaker-io';
 import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from './report';
-import { changeScriptFile, getCommandNumberFromApp, getXSRFToken, retrieveCommands, takeScreenshoot } from './appmaker-network-actions';
-import { stdin } from 'node:process';
+import { getCommandNumberFromApp, getXSRFToken } from './appmaker-network-actions';
+import { AppValidator } from './appmaker/app-validatior';
 
-import { stat as oldStat, rm as oldRm, readdir as oldReaddir, watch, lstatSync, readFile as oldReadFile } from 'node:fs';
+import { stat as oldStat, rm as oldRm, readdir as oldReaddir, lstatSync, readFile as oldReadFile } from 'node:fs';
 import { promisify } from 'node:util';
 import { pipe } from 'fp-ts/lib/function';
 
@@ -47,27 +47,20 @@ export async function postRemoteZipActionsHandler(pathToZip: string, pathToProje
   await rm(pathToProject, { recursive: true });
 }
 
-async function validateUnzipProject(passedPath: string, outDir: string): Promise<{ code: number }> {
-  const [linterConfig, tsConfig] = await Promise.all([
-    readLinterConfig(),
-    readTSConfig(),
-  ]);
-
+async function createAppMakerApplication(pathToUnzipProjectFolder: string): Promise<App> {
   const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
-    getScriptsNames(passedPath),
-    getModelsNames(passedPath),
-    getViewsNames(passedPath),
+    getScriptsNames(pathToUnzipProjectFolder),
+    getModelsNames(pathToUnzipProjectFolder),
+    getViewsNames(pathToUnzipProjectFolder),
   ]);
 
   const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
-    readAppMakerScripts(passedPath, scriptsNames),
-    readAppMakerModels(passedPath, modelsNames),
-    readAppMakerViews(passedPath, viewsNames),
+    readAppMakerScripts(pathToUnzipProjectFolder, scriptsNames),
+    readAppMakerModels(pathToUnzipProjectFolder, modelsNames),
+    readAppMakerViews(pathToUnzipProjectFolder, viewsNames),
 
-    readAppMakerViewsF(getPathToViews(passedPath))(),
+    readAppMakerViewsF(getPathToViews(pathToUnzipProjectFolder))(),
   ]);
-
-  // const 
 
   const app = new App();
 
@@ -79,11 +72,36 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
     )
   )
 
+  return app;
+}
+
+async function createApplicationValidator() {
+  const [linterConfig, tsConfig] = await Promise.all([
+    readLinterConfig(),
+    readTSConfig(),
+  ]);
+
+  const validation = new AppValidator();
+
+  validation.setLintConfig(linterConfig);
+  validation.setTSConfig(tsConfig);
+
+  return validation;
+}
+
+async function validateUnzipProject(passedPath: string, outDir: string): Promise<{ code: number }> {
+  const appValidator = await createApplicationValidator();
+  const app = await createAppMakerApplication(passedPath);
+
+  app.setAppValidator(appValidator);
+
   const pathToGenerateJSProjectDir = outDir;
 
-  const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, app);
+  const generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, app);
 
-  if (generatedFiles.length > 0) {
+  const tsConfig = app.getAppValidator().getTSConfig();
+
+  if (generatedFiles.length > 0 && tsConfig) {
     const allDiagnostics = checkTypes(generatedFiles, tsConfig);
 
     printTSCheckDiagnostics(allDiagnostics);
@@ -97,12 +115,17 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
     console.log('No file to check for types. TS check skip')
   }
 
-  const lintingReport = checkLinting(scriptsFiles, linterConfig);
-  printLintingReport(lintingReport);
 
-  await writeValidatedScriptsToAppMakerXML(scriptsFiles, lintingReport, passedPath);
+  const linterConfig = app.getAppValidator().getLintConfig();
 
-  const emptyScripts = checkForEmptyScriptsFiles(scriptsFiles);
+  if (linterConfig) {
+    const lintingReport = checkLinting(app, linterConfig);
+    printLintingReport(lintingReport);
+
+    await writeValidatedScriptsToAppMakerXML(app, lintingReport, passedPath);
+  }
+
+  const emptyScripts = checkForEmptyScriptsFiles(app);
   printEmptyScripts(emptyScripts);
 
   return { code: 1 };
@@ -162,11 +185,11 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
 }
 
 export async function handleRemoteApplicationMode(options: RemoteMode): Promise<void> {
-  const passedPath = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
+  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
 
-  const result = await validateZipProject(passedPath, options.outDir);
+  const result = await validateZipProject(passedPathToExportedZip, options.outDir);
 
-  await postRemoteZipActionsHandler(passedPath, result.path, options.outDir);
+  await postRemoteZipActionsHandler(passedPathToExportedZip, result.path, options.outDir);
 
   if (result.code !== 0) {
     process.exit(result.code);
@@ -218,195 +241,195 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       }))
   )) as Array<{ content: string, name: string, path: string }>;
 
-  // console.log('files', files);
+  function run(page: puppeteer.Page) {
+    return new Promise(async (resolve, reject) => {
+      let xsrfToken = await getXSRFToken(page);
+      let commandNumber = await getCommandNumberFromApp(page);
 
-  let browser = await openBrowser({ headless: false });
+      console.log('run xsrfToken ' + xsrfToken);
+      console.log('run commandNumber ' + commandNumber);
 
-  let page: puppeteer.Page | null = null;
-  let commandNumber = '';
-  let xsrfToken = '';
-  let generatedFiles: Array<string> = [];
-
-  let _app = new App();
-
-  try {
-    console.log('open page');
-
-    page = await browser.newPage()
-  } catch (e) {
-    console.log('error: cant open page', e);
-
-    console.log('handleInteractiveApplicationMode interactive closing');
-    await browser.close();
-
-    throw e;
+      resolve(null);
+    });
   }
 
-  try {
-    await new Promise(res => setTimeout(res, 2000));
+  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
 
-    console.log('newPage');
+  // try {
+  //   console.log('open page');
 
-    // TODO: not always wait correctly
-    await page.goto(`https://appmaker.googleplex.com/edit/${options.appId}`, {waitUntil: 'networkidle2'});
+  //   page = await browser.newPage()
+  // } catch (e) {
+  //   console.log('error: cant open page', e);
 
-    if (isAuthPage(page.url())) {
-      await auth(page, options.credentials);
-    }
+  //   console.log('handleInteractiveApplicationMode interactive closing');
+  //   await browser.close();
 
-    if (isAppPage(page.url())) {
-      commandNumber = await getCommandNumberFromApp(page);
-      console.log('current command', commandNumber);
-      console.log('successfuly loged in, please type command');
-    } else {
-      throw new Error('unknown page: taking screen');
-    }
+  //   throw e;
+  // }
 
-    xsrfToken = await getXSRFToken(page);
+  // try {
+  //   await new Promise(res => setTimeout(res, 2000));
 
-  } catch (e) {
-    console.log('error: taking screen', e);
-    await takeScreenshoot(page);
+  //   console.log('newPage');
 
-    await browser.close();
+  //   // TODO: not always wait correctly
+  //   await page.goto(`https://appmaker.googleplex.com/edit/${options.appId}`, {waitUntil: 'networkidle2'});
 
-    throw e;
-  }
+  //   if (isAuthPage(page.url())) {
+  //     await auth(page, options.credentials);
+  //   }
 
-  async function callback(data: Buffer) {
-    let command = data.toString();
-    command = command.slice(0, command.length - 1)
+  //   if (isAppPage(page.url())) {
+  //     commandNumber = await getCommandNumberFromApp(page);
+  //     console.log('current command', commandNumber);
+  //     console.log('successfuly loged in, please type command');
+  //   } else {
+  //     throw new Error('unknown page: taking screen');
+  //   }
 
-    if (command === InteractiveModeCommands.close) {
-      stdin.removeListener('data', callback);
+  //   xsrfToken = await getXSRFToken(page);
 
-      await browser.close();
-      console.log('browser closed');
-      stdin.end();
-      process.exit(0);
-    } else if (command === InteractiveModeCommands.printWorkingDirectory) {
-      console.log(options.outDir);
-    } else if (command === InteractiveModeCommands.printCommandNumber) {
-      console.log(commandNumber);
-    } else if (command === InteractiveModeCommands.listFiles) {
-      try {
-        const files: Array<string> = await readdir(options.outDir);
-        const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
-        console.log(filesAsString);
-      } catch (e) {
-        console.log('ls failed with error: ', e);
-      }
-    } else if (command === InteractiveModeCommands.export) {
-      try {
-        const passedPath = await app(page!, options.outDir);
+  // } catch (e) {
+  //   console.log('error: taking screen', e);
+  //   await takeScreenshoot(page);
 
-        let pathToProject = passedPath;
+  //   await browser.close();
 
-        pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
+  //   throw e;
+  // }
 
-        await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
+  // let _app = new App();
 
-        const [linterConfig, tsConfig] = await Promise.all([
-          readLinterConfig(),
-          readTSConfig(),
-        ]);
+  // async function callback(data: Buffer) {
+  //   let command = data.toString();
+  //   command = command.slice(0, command.length - 1)
+
+  //   if (command === InteractiveModeCommands.close) {
+  //     stdin.removeListener('data', callback);
+
+  //     await browser.close();
+  //     console.log('browser closed');
+  //     stdin.end();
+  //     process.exit(0);
+  //   } else if (command === InteractiveModeCommands.printWorkingDirectory) {
+  //     console.log(options.outDir);
+  //   } else if (command === InteractiveModeCommands.printCommandNumber) {
+  //     console.log(commandNumber);
+  //   } else if (command === InteractiveModeCommands.listFiles) {
+  //     try {
+  //       const files: Array<string> = await readdir(options.outDir);
+  //       const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
+  //       console.log(filesAsString);
+  //     } catch (e) {
+  //       console.log('ls failed with error: ', e);
+  //     }
+  //   } else if (command === InteractiveModeCommands.export) {
+  //     try {
+  //       const passedPath = await app(page!, options.outDir);
+
+  //       let pathToProject = passedPath;
+
+  //       pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
+
+  //       await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
+
+  //       const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
+  //         getScriptsNames(pathToProject),
+  //         getModelsNames(pathToProject),
+  //         getViewsNames(pathToProject),
+  //       ]);
       
-        const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
-          getScriptsNames(pathToProject),
-          getModelsNames(pathToProject),
-          getViewsNames(pathToProject),
-        ]);
-      
-        const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
-          readAppMakerScripts(pathToProject, scriptsNames),
-          readAppMakerModels(pathToProject, modelsNames),
-          readAppMakerViews(pathToProject, viewsNames),
-        ]);
+  //       const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
+  //         readAppMakerScripts(pathToProject, scriptsNames),
+  //         readAppMakerModels(pathToProject, modelsNames),
+  //         readAppMakerViews(pathToProject, viewsNames),
+  //       ]);
       
       
-        initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles, []);
+  //       initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles, []);
       
-        const pathToGenerateJSProjectDir = options.outDir;
+  //       const pathToGenerateJSProjectDir = options.outDir;
       
-        generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, scriptsFiles, tsConfig, linterConfig, _app);
-      } catch (e) {
-        console.log('Export failed with error: ', e);
-      }
-    } else if (command === InteractiveModeCommands.screenshot) {
-      try {
-        await takeScreenshoot(page!);
-        console.log('screenshot done');
-      } catch (e) {
-        console.log(`${InteractiveModeCommands.screenshot} failed with error: `, e);
-      }
-    } else if (command === InteractiveModeCommands.update) {
-      console.log('update');
-    } else {
-      console.log('unknown command', command);
-    }
-  }
+  //       generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, _app);
+  //     } catch (e) {
+  //       console.log('Export failed with error: ', e);
+  //     }
+  //   } else if (command === InteractiveModeCommands.screenshot) {
+  //     try {
+  //       await takeScreenshoot(page!);
+  //       console.log('screenshot done');
+  //     } catch (e) {
+  //       console.log(`${InteractiveModeCommands.screenshot} failed with error: `, e);
+  //     }
+  //   } else if (command === InteractiveModeCommands.update) {
+  //     console.log('update');
+  //   } else {
+  //     console.log('unknown command', command);
+  //   }
+  // }
 
-  const buttonPressesLogFile = options.outDir;
+  // const buttonPressesLogFile = options.outDir;
 
-  console.log(`Watching for file changes on ${buttonPressesLogFile}`);
+  // console.log(`Watching for file changes on ${buttonPressesLogFile}`);
 
-  let fsWait: any = false;
-  watch(buttonPressesLogFile, (event, filename) => {
-    if (filename) {
-      if (fsWait) return;
-      fsWait = setTimeout(() => {
-        fsWait = false;
-      }, 1000);
-      console.log(`${filename} file Changed`);
-      console.log('event', event);
+  // let fsWait: any = false;
+  // watch(buttonPressesLogFile, (event, filename) => {
+  //   if (filename) {
+  //     if (fsWait) return;
+  //     fsWait = setTimeout(() => {
+  //       fsWait = false;
+  //     }, 1000);
+  //     console.log(`${filename} file Changed`);
+  //     console.log('event', event);
 
-      const file = files.find(f => f.name === filename);
+  //     const file = files.find(f => f.name === filename);
 
-      if (file) {
-        readFile(file.path, 'utf-8')
-          .then((newContent) => {
-            const name = file.name.split('.').slice(0, file.name.split('.').length - 1).join('.');
-            console.log('name', name, file.name);
-            const p = changeScriptFile(page!, xsrfToken, options.appId, options.credentials.login, name, commandNumber, file.content, newContent);
+  //     if (file) {
+  //       readFile(file.path, 'utf-8')
+  //         .then((newContent) => {
+  //           const name = file.name.split('.').slice(0, file.name.split('.').length - 1).join('.');
+  //           console.log('name', name, file.name);
+  //           const p = changeScriptFile(page!, xsrfToken, options.appId, options.credentials.login, name, commandNumber, file.content, newContent);
 
-            file.content = newContent;
+  //           file.content = newContent;
 
-            return p;
-          })
-          .then(done => {
-            console.log('done', done);
-          })
-      } else {
-        console.log('Couldt find file with name', filename);
-      }
-    }
-  });
+  //           return p;
+  //         })
+  //         .then(done => {
+  //           console.log('done', done);
+  //         })
+  //     } else {
+  //       console.log('Couldt find file with name', filename);
+  //     }
+  //   }
+  // });
 
-  let pr: Promise<unknown> | null = null;
+  // let pr: Promise<unknown> | null = null;
 
-  async function checkForCommandNumber() {
-    if (pr !== null) {
-      return;
-    }
+  // async function checkForCommandNumber() {
+  //   if (pr !== null) {
+  //     return;
+  //   }
 
-    pr = retrieveCommands(page!, xsrfToken, options.appId, commandNumber);
+  //   pr = retrieveCommands(page!, xsrfToken, options.appId, commandNumber);
 
-    const _commandNumber = await pr;
+  //   const _commandNumber = await pr;
 
-    pr = null;
+  //   pr = null;
 
-    // console.log('res', _commandNumber);
-    // console.log('current Command', commandNumber);
+  //   // console.log('res', _commandNumber);
+  //   // console.log('current Command', commandNumber);
 
-    if ((_commandNumber as any).response) {
-      // console.log(`Command number changed. Prev: ${_commandNumber.response[0].changeScriptCommand.sequenceNumber }. Current: ${commandNumber}`);
-      // commandNumber = _commandNumber.response[0].changeScriptCommand.sequenceNumber ;
-      console.log('Your application is out-of-day, please reload');
-      console.log('res', _commandNumber);
-    }
-  }
+  //   if ((_commandNumber as any).response) {
+  //     // console.log(`Command number changed. Prev: ${_commandNumber.response[0].changeScriptCommand.sequenceNumber }. Current: ${commandNumber}`);
+  //     // commandNumber = _commandNumber.response[0].changeScriptCommand.sequenceNumber ;
+  //     console.log('Your application is out-of-day, please reload');
+  //     console.log('res', _commandNumber);
+  //   }
+  // }
 
-  setInterval(checkForCommandNumber, 5000);
+  // setInterval(checkForCommandNumber, 5000);
 
-  stdin.on('data', callback);
+  // stdin.on('data', callback);
 }

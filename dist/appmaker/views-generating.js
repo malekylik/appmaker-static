@@ -123,7 +123,8 @@ function createParsedBinding(binding, name, value) {
     return ({ ...binding, name, value });
 }
 function generateJSXForViews(newViews, customWidgetMap) {
-    return newViews.map(view => {
+    return newViews.map((viewObj) => {
+        const view = viewObj.view;
         const currentTag = [];
         const datasources = [];
         const viewName = (0, function_1.pipe)(view, view => (0, appmaker_view_1.findAppMakerNameProperty)(view.property), O.match(() => 'Unknonw_View_Name', v => v['#text']));
@@ -179,7 +180,7 @@ function generateJSXForViews(newViews, customWidgetMap) {
         const resultFile = ts.createSourceFile('', '', ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
         const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
         const result = printer.printList(ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine, ts.factory.createNodeArray(statements), resultFile);
-        return ({ name: viewName, code: result });
+        return ({ path: viewName, code: result, /** TODO: remove */ name: viewName });
     });
 }
 exports.generateJSXForViews = generateJSXForViews;

@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-// import { getScriptExports } from './appmaker/generate-utils';
 const command_line_1 = require("./command-line");
 const handlers_1 = require("./handlers");
 async function run() {

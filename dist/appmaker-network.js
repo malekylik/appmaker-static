@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.callAppMakerApp = exports.app = exports.auth = exports.isAppPage = exports.isAuthPage = exports.openBrowser = void 0;
+exports.runInApplicationPageContext = exports.callAppMakerApp = exports.initBrowserWithAppMakerApp = exports.app = exports.auth = exports.isAppPage = exports.isAuthPage = exports.openBrowser = void 0;
 const puppeteer = require("puppeteer");
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
@@ -75,6 +75,11 @@ async function auth(page, credentials) {
     await page.waitForNavigation({ waitUntil: 'networkidle2' });
 }
 exports.auth = auth;
+/**
+ * @param page
+ * @param applicationId
+ * @returns
+ */
 async function app(page, applicationId) {
     console.log('app routine');
     const xsrfToken = await (0, appmaker_network_actions_1.getXSRFToken)(page);
@@ -83,13 +88,12 @@ async function app(page, applicationId) {
     const appZipText = await page.evaluate(appmaker_network_actions_1.exportProject, applicationId, xsrfToken);
     const appZipPath = __dirname + '/app.zip';
     console.log(`exporting done`);
-    console.log(`writting to ${appZipPath}`);
+    console.log(`writing to ${appZipPath}`);
     await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
     return appZipPath;
 }
 exports.app = app;
-async function callAppMakerApp(applicationId, credentials, options = {}) {
-    const browser = await openBrowser(options);
+async function initBrowserWithAppMakerApp(browser, applicationId, credentials) {
     let page = null;
     try {
         console.log('open page');
@@ -109,6 +113,22 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         if (isAuthPage(page.url())) {
             await auth(page, credentials);
         }
+        return page;
+    }
+    catch (e) {
+        console.log('error: taking screen', e);
+        await (0, appmaker_network_actions_1.takeScreenshoot)(page);
+        console.log('initBrowserWithAppMakerApp: closing browser');
+        await browser.close();
+        throw e;
+    }
+}
+exports.initBrowserWithAppMakerApp = initBrowserWithAppMakerApp;
+async function callAppMakerApp(applicationId, credentials, options = {}) {
+    const browser = await openBrowser(options);
+    let page = null;
+    try {
+        page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
         if (isAppPage(page.url())) {
             return await app(page, applicationId);
         }
@@ -117,8 +137,13 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
         }
     }
     catch (e) {
-        console.log('error: taking screen', e);
-        await (0, appmaker_network_actions_1.takeScreenshoot)(page);
+        if (page) {
+            console.log('error: taking screen', e);
+            await (0, appmaker_network_actions_1.takeScreenshoot)(page);
+        }
+        else {
+            console.log('error: page is not defined', e);
+        }
         throw e;
     }
     finally {
@@ -128,3 +153,31 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
 }
 exports.callAppMakerApp = callAppMakerApp;
 ;
+async function runInApplicationPageContext(applicationId, credentials, options, callback) {
+    const browser = await openBrowser(options);
+    let page = null;
+    try {
+        page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+        if (isAppPage(page.url())) {
+            await callback(page);
+        }
+        else {
+            throw new Error('unknown page: taking screen');
+        }
+    }
+    catch (e) {
+        if (page) {
+            console.log('error: taking screen', e);
+            await (0, appmaker_network_actions_1.takeScreenshoot)(page);
+        }
+        else {
+            console.log('error: page is not defined', e);
+        }
+        throw e;
+    }
+    finally {
+        console.log('callAppMakerApp closing');
+        await browser.close();
+    }
+}
+exports.runInApplicationPageContext = runInApplicationPageContext;

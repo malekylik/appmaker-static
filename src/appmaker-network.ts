@@ -91,6 +91,11 @@ export async function auth(page: puppeteer.Page, credentials: { login: string; p
   await page.waitForNavigation({ waitUntil: 'networkidle2' });
 }
 
+/**
+ * @param page
+ * @param applicationId
+ * @returns
+ */
 export async function app(page: puppeteer.Page, applicationId: string) {
   console.log('app routine');
 
@@ -105,16 +110,14 @@ export async function app(page: puppeteer.Page, applicationId: string) {
   const appZipPath = __dirname + '/app.zip';
 
   console.log(`exporting done`);
-  console.log(`writting to ${appZipPath}`);
+  console.log(`writing to ${appZipPath}`);
 
   await writeFile(appZipPath, Buffer.from(appZipText, 'binary'));
 
   return appZipPath;
 }
 
-export async function callAppMakerApp (applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
-  const browser = await openBrowser(options);
-
+export async function initBrowserWithAppMakerApp(browser: puppeteer.Browser, applicationId: string, credentials: { login: string; password: string; }): Promise<puppeteer.Page> {
   let page = null;
 
   try {
@@ -142,14 +145,39 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
       await auth(page, credentials);
     }
 
+    return page;
+  } catch (e) {
+    console.log('error: taking screen', e);
+
+    await takeScreenshoot(page);
+
+    console.log('initBrowserWithAppMakerApp: closing browser');
+    await browser.close();
+
+    throw e;
+  }
+}
+
+export async function callAppMakerApp(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
+  const browser = await openBrowser(options);
+
+  let page = null;
+
+  try {
+      page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+
     if (isAppPage(page.url())) {
       return await app(page, applicationId);
     } else {
       throw new Error('unknown page: taking screen');
     }
   } catch (e) {
-    console.log('error: taking screen', e);
-    await takeScreenshoot(page);
+    if (page) {
+      console.log('error: taking screen', e);
+      await takeScreenshoot(page);
+    } else {
+      console.log('error: page is not defined', e);
+    }
 
     throw e;
   } finally {
@@ -157,3 +185,31 @@ export async function callAppMakerApp (applicationId: string, credentials: { log
     await browser.close();
   }
 };
+
+export async function runInApplicationPageContext(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' }, callback: (page: puppeteer.Page) => Promise<unknown>) {
+  const browser = await openBrowser(options);
+
+  let page = null;
+
+  try {
+      page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+
+    if (isAppPage(page.url())) {
+      await callback(page);
+    } else {
+      throw new Error('unknown page: taking screen');
+    }
+  } catch (e) {
+    if (page) {
+      console.log('error: taking screen', e);
+      await takeScreenshoot(page);
+    } else {
+      console.log('error: page is not defined', e);
+    }
+
+    throw e;
+  } finally {
+    console.log('callAppMakerApp closing');
+    await browser.close();
+  }
+}

@@ -228,6 +228,11 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
     return parsedRes;
 }
 exports.changeScriptFile = changeScriptFile;
+/**
+ * @param applicationId
+ * @param xsrfToken
+ * @returns result of exported AppMaker project as a string
+ */
 function exportProject(applicationId, xsrfToken) {
     return fetch('https://appmaker.googleplex.com/_am/exportApp', {
         method: 'POST',

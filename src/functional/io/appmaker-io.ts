@@ -12,18 +12,19 @@ import { folderContent, folderFiles, parseXMLFile, readFile } from './filesystem
 
 import { isAppMakerViewStruct } from '../appmaker/appmaker-view';
 
-export const readAppMakerView = (filepath: string): TE.TaskEither<string, AppMakerViewStruct> =>
+export const readAppMakerView = (filepath: string): TE.TaskEither<string, { path: string; content: AppMakerViewStruct }> =>
   pipe(
     filepath,
     readFile,
     TE.flatMap(parseXMLFile),
-    TE.flatMap(v => TE.fromEither(isAppMakerViewStruct(v)))
+    TE.flatMap(v => TE.fromEither(isAppMakerViewStruct(v))),
+    TE.flatMap(v => TE.right({ path: filepath, content: v }))
   );
 
-export const readAppMakerViews = (viewFolderPath: string): TE.TaskEither<string, AppMakerViewStruct[]> => pipe(
+export const readAppMakerViews = (viewFolderPath: string): TE.TaskEither<string, { path: string; content: AppMakerViewStruct }[]> => pipe(
   folderContent(viewFolderPath),
   TE.chain(folderFiles),
   TE.chain(files => pipe(files, RA.traverse(
-    TE.getApplicativeTaskValidation(T.ApplyPar, pipe(string.Semigroup, S.intercalate(', '))))(readAppMakerView)) as TE.TaskEither<string, AppMakerViewStruct[]>)
+    TE.getApplicativeTaskValidation(T.ApplyPar, pipe(string.Semigroup, S.intercalate(', '))))(readAppMakerView)) as TE.TaskEither<string, { path: string; content: AppMakerViewStruct }[]>)
 );
 

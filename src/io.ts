@@ -11,6 +11,7 @@ import * as ts from 'typescript';
 import { App } from './appmaker/app';
 import { generateResultXML } from './generate';
 import { LintingReport } from './validate';
+import { TSConfig } from './appmaker/app-validatior';
 
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
@@ -31,8 +32,6 @@ export function getPathToModels(pathToProject: string): string {
 export function getPathToViews(pathToProject: string): string {
   return `${pathToProject}/views`;
 }
-
-export type TSConfig = { compilerOptions: any };
 
 export async function readTSConfig(): Promise<TSConfig> {
   const tsConfig: TSConfig = JSON.parse(await readFile('./tsconfig.json', 'utf-8'));
@@ -157,9 +156,7 @@ export async function readAppMakerViews(pathToProject: string, modelsNames: Arra
   return viewFiles;
 }
 
-export async function generateJSProjectForAppMaker(
-  pathToProject: string, scriptsFiles: AppMakerScriptFolderContent, tsConfig: TSConfig, eslintConfig: Linter.Config<Linter.RulesRecord>, app: App
-): Promise<Array<string>> {
+export async function generateJSProjectForAppMaker(pathToProject: string, app: App): Promise<Array<string>> {
   try {
     await access(pathToProject, constants.F_OK);
     await rm(pathToProject, { recursive: true });
@@ -169,15 +166,15 @@ export async function generateJSProjectForAppMaker(
 
   const tsFilesToCheck: string[] = [];
 
-  for (let i = 0; i < scriptsFiles.length; i++) {
-    const { name, file } = scriptsFiles[i]!;
+  for (let i = 0; i < app.scripts.length; i++) {
+    const { name, code } = app.scripts[i]!;
 
     console.log(`-----${name}-----`);
 
-    if (file.script['#text']) {
-      const pathToFileTSFile = `${pathToProject}/${name.replace('.xml', '.js')}`;
+    if (code) {
+      const pathToFileTSFile = `${pathToProject}/${name}.js`;
       console.log(pathToFileTSFile);
-      await writeFile(pathToFileTSFile, file.script['#text']);
+      await writeFile(pathToFileTSFile, code);
 
       tsFilesToCheck.push(pathToFileTSFile);
     }
@@ -193,12 +190,23 @@ export async function generateJSProjectForAppMaker(
     `${pathToTypes}/index.d.ts`, `${pathToTypes}/logger.d.ts`, `${pathToTypes}/services.d.ts`, `${pathToTypes}/dataService.d.ts`, `${pathToTypes}/cloudSqlService.d.ts`, `${pathToTypes}/userProvider.d.ts`
     // ...generatedViews.map(view => `${pathToViews}/${view.name}.jsx`), TODO: uncomment when types for jsx is created
   ]);
-  const conf = {
-    ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.Node16, noEmit: true, allowJs: true, checkJs: true,
-    jsx: 'react-jsx',
-  };
-  await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
-  await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
+
+  const tsConfig = app.getAppValidator().getTSConfig();
+
+  if (tsConfig) {
+    const conf = {
+      ...tsConfig.compilerOptions, moduleResolution: ts.ModuleResolutionKind.Node16, noEmit: true, allowJs: true, checkJs: true,
+      jsx: 'react-jsx',
+    };
+
+    await writeFile(`${pathToProject}/tsconfig.json`, JSON.stringify({ files: files, compilerOptions: { ...conf, moduleResolution: 'node' } }, null, 2));
+  }
+
+  const eslintConfig = app.getAppValidator().getLintConfig();
+
+  if (eslintConfig) {
+    await writeFile(`${pathToProject}/.eslintrc`, JSON.stringify(eslintConfig, null, 2));
+  }
 
   await mkdir(pathToTypes);
   await mkdir(pathToViews);
@@ -213,29 +221,31 @@ export async function generateJSProjectForAppMaker(
   await writeFile(`${pathToProject}/__events.js`, app.generateWidgetEventsSourceFile());
 
   for (let i = 0; i < generatedViews.length; i++) {
-    const view = generatedViews[i];
+    const view = generatedViews[i]!;
 
-    await writeFile(`${pathToViews}/${view?.name}.jsx`, view?.code);
+    // TODO: use path instead of view name
+    await writeFile(`${pathToViews}/${view.name}.jsx`, view.code);
   }
 
   return files;
 }
 
 export async function writeValidatedScriptsToAppMakerXML(
-  scriptsFiles: AppMakerScriptFolderContent, lintingReport: LintingReport, pathToProject: string,
+  app: App, lintingReport: LintingReport, pathToProject: string,
 ): Promise<void[]> {
   const promise: Array<Promise<void>> = [];
 
-  for (let i = 0; i < scriptsFiles.length; i++) {
-    const { name, file } = scriptsFiles[i]!;
-    const report = lintingReport.find(report => report.name === name);
+  for (let i = 0; i < app.scripts.length; i++) {
+    const script = app.scripts[i]!;
+    const report = lintingReport.find(report => report.name === script.name);
 
     if (report) {
-      console.log('write fixed after linting file', name);
+      console.log('write fixed after linting file', script.name);
 
-      const res = generateResultXML(file, report.report.output);
+      const res = generateResultXML(script, report.report.output);
 
-      promise.push(writeFile(`${getPathToScrips(pathToProject)}/${name}`, res));
+      // TODO: path should come from script object
+      promise.push(writeFile(`${getPathToScrips(pathToProject)}/${script.name}.xml`, res));
     }
   }
 
