@@ -16,11 +16,21 @@ import { pipe } from 'fp-ts/lib/function';
 
 import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
+import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-network-actions';
 
 const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
+
+
+function getCommandNumberResponse(response: RequestResponse): string {
+  return response
+    .response
+    .slice()
+    .sort((a, b) => Number(b.changeScriptCommand.sequenceNumber) - Number(a.changeScriptCommand.sequenceNumber))
+    [0]?.changeScriptCommand.sequenceNumber || '-1';
+}
 
 export async function postOfflineZipActionsHandler(pathToProject: string, outDir: string) {
   console.log('post actions');
@@ -293,8 +303,13 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
                     ))
                   );
 
-                  p.then(() => {
+                  p.then((r) => {
                     script.code = newContent;
+
+                    commandNumber = pipe(
+                      r,
+                      O.chain(v => isRequestResponse(v) ? O.some(getCommandNumberResponse(v)) : commandNumber)
+                    )
                   });
 
                   return p;
@@ -305,8 +320,13 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
                 return Promise.resolve(O.none);
               })
               .then(done => {
-                console.log('Updated script: ' + file);
-                console.log('Res ', done);
+                if (O.isSome(done) && isRequestResponse(done.value)) {
+                  console.log('Updated script: ' + file);
+                } else if (O.isSome(done) && isRequestError(done.value)) {
+                  console.log('Updated script error: ' + done.value);
+                } else {
+                  console.log('Updated script: unknown response', done);
+                }
               })
               .catch(e => {
                 console.log('updating content ended with a error ' + e);
@@ -463,8 +483,35 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
         );
 
         // { response: [ { changeScriptCommand: [Object] } ] }
-
         console.log('sending done', O.isSome(r) ? r.value : O.none);
+
+        if (O.isSome(r) && isRequestResponse(r.value)) {
+          console.log('sucesfull done');
+
+          commandNumber = O.some(getCommandNumberResponse(r.value));
+        }
+
+        const code1 = newContent;
+        const newContent1 = '31';
+
+        const p = await pipe(
+          xsrfToken,
+          O.match(() => Promise.resolve(O.none), t => pipe(
+            commandNumber,
+            O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(
+              t,
+              options.appId,
+              options.credentials.login,
+              key,
+              c,
+              code1,
+              newContent1
+            ))
+          ))
+        );
+
+        // { response: [ { changeScriptCommand: [Object] } ] }
+        console.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
       } catch (e) {
         console.log(e);
       }

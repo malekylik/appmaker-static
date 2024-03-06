@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.isRequestError = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
@@ -70,6 +70,40 @@ var CommnadId;
 (function (CommnadId) {
     CommnadId[CommnadId["paste"] = 22] = "paste";
 })(CommnadId || (CommnadId = {}));
+// {
+//   "response": [{
+//     "changeScriptCommand": {
+//       "key": {
+//         "applicationKey": "KIx47x0MqU",
+//         "localKey": "KvnDexb6pseSmosN462IoKCbff76H6ts"
+//       },
+//       "scriptChange": {
+//         "lengthAfter": 1467,
+//         "lengthBefore": 1466,
+//         "modifications": [{
+//           "length": 26,
+//           "type": "SKIP"
+//         }, {
+//           "length": 1,
+//           "text": "1",
+//           "type": "INSERT"
+//         }, {
+//           "length": 1440,
+//           "type": "SKIP"
+//         }]
+//       },
+//       "sequenceNumber": "4291"
+//     }
+//   }]
+// }
+// res { response: [ { addModelDataSourceCommand: [Object] } ] }
+// string application_key = 1;
+// // TODO(b/171309255): add comments.
+// int64 sequence_number = 2;
+const isRequestResponse = (response) => response !== null && typeof response === 'object' && 'response' in response && Array.isArray(response.response);
+exports.isRequestResponse = isRequestResponse;
+const isRequestError = (response) => response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
+exports.isRequestError = isRequestError;
 async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
     const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
         const body = {
@@ -126,25 +160,6 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
 }
 exports.retrieveCommands = retrieveCommands;
 async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) {
-    console.log('changeScriptFile commandNumber', commandNumber);
-    console.log('changeScriptFile xsrfToken', xsrfToken);
-    console.log('changeScriptFile fileKey', fileKey);
-    // const body = {
-    //   "1": `${login}:65675019:1709725791108`, // dont know numbers
-    //   "2": {
-    //     "22": {
-    //       "1": {
-    //         "1": appId,
-    //         "2": { "1": fileKey }
-    //     },
-    //     "2": { "1": content.length, "2": prevContent.length,
-    //       "3":[
-    //         {
-    //         "1": prevContent.length,
-    //         "2": {"1": '__prevContent__'}, "3":3}, { "1":'__new_content__', "2":{ "1": '' }, "3":2}]}, "3":"0" }
-    //       },
-    //   "3": commandNumber
-    //   };
     const body = {
         "1": `${login}:-65675019:1709725791108`, // dont know numbers
         "2": {
@@ -164,7 +179,6 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
         },
         "3": commandNumber
     };
-    // console.log('changeScriptFile sent with body ' + JSON.stringify(body));
     const res = await page.evaluate((_xsrfToken, _body) => {
         const payload = {
             method: 'POST',

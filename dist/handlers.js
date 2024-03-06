@@ -15,10 +15,17 @@ const node_util_1 = require("node:util");
 const function_1 = require("fp-ts/lib/function");
 const O = require("fp-ts/lib/Option");
 const E = require("fp-ts/lib/Either");
+const appmaker_network_actions_1 = require("./appmaker-network-actions");
 const rm = (0, node_util_1.promisify)(node_fs_1.rm);
 const readFile = (0, node_util_1.promisify)(node_fs_1.readFile);
 const exec = (0, node_util_1.promisify)(require('node:child_process').exec);
 const stat = (0, node_util_1.promisify)(node_fs_1.stat);
+function getCommandNumberResponse(response) {
+    return response
+        .response
+        .slice()
+        .sort((a, b) => Number(b.changeScriptCommand.sequenceNumber) - Number(a.changeScriptCommand.sequenceNumber))[0]?.changeScriptCommand.sequenceNumber || '-1';
+}
 async function postOfflineZipActionsHandler(pathToProject, outDir) {
     console.log('post actions');
     process.chdir(pathToProject);
@@ -209,8 +216,9 @@ async function handleInteractiveApplicationMode(options) {
                             const script = app.scripts.find(script => script.name === filename.replace('.js', ''));
                             if (script) {
                                 const p = (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, script.key, c, script.code || '', newContent)))));
-                                p.then(() => {
+                                p.then((r) => {
                                     script.code = newContent;
+                                    commandNumber = (0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : commandNumber));
                                 });
                                 return p;
                             }
@@ -220,8 +228,15 @@ async function handleInteractiveApplicationMode(options) {
                             return Promise.resolve(O.none);
                         })
                             .then(done => {
-                            console.log('Updated script: ' + file);
-                            console.log('Res ', done);
+                            if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
+                                console.log('Updated script: ' + file);
+                            }
+                            else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
+                                console.log('Updated script error: ' + done.value);
+                            }
+                            else {
+                                console.log('Updated script: unknown response', done);
+                            }
                         })
                             .catch(e => {
                             console.log('updating content ended with a error ' + e);
@@ -334,6 +349,15 @@ async function handleInteractiveApplicationModeTest(options) {
                 const r = await (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, key, c, code, newContent)))));
                 // { response: [ { changeScriptCommand: [Object] } ] }
                 console.log('sending done', O.isSome(r) ? r.value : O.none);
+                if (O.isSome(r) && (0, appmaker_network_actions_1.isRequestResponse)(r.value)) {
+                    console.log('sucesfull done');
+                    commandNumber = O.some(getCommandNumberResponse(r.value));
+                }
+                const code1 = newContent;
+                const newContent1 = '31';
+                const p = await (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, key, c, code1, newContent1)))));
+                // { response: [ { changeScriptCommand: [Object] } ] }
+                console.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
             }
             catch (e) {
                 console.log(e);

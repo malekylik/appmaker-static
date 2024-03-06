@@ -118,6 +118,12 @@ enum CommnadId {
 // // TODO(b/171309255): add comments.
 // int64 sequence_number = 2;
 
+export const isRequestResponse = (response: unknown): response is RequestResponse =>
+  response !== null && typeof response === 'object' && 'response' in response && Array.isArray(response.response);
+
+export const isRequestError = (response: unknown): response is RequestError =>
+  response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
+
 export type RequestResponse = { response: Array<{ changeScriptCommand: {
   key: { applicationKey: string; localKey: string; };
   scriptChange: {
@@ -127,7 +133,7 @@ export type RequestResponse = { response: Array<{ changeScriptCommand: {
   };
   sequenceNumber: string;
 } }> };
-export type RequestError = { type: string; message: string; };
+export type RequestError = { type: string; message: string; unknownException?: { exceptionTypeName: 'UNKNOWN_EXCEPTION' } };
 
 export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, appKey: string, currentCommandNumber: string) {
   const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
@@ -191,45 +197,22 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
 }
 
 export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, appId: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string) {
-  console.log('changeScriptFile commandNumber', commandNumber);
-  console.log('changeScriptFile xsrfToken', xsrfToken);
-  console.log('changeScriptFile fileKey', fileKey);
-  
-  // const body = {
-  //   "1": `${login}:65675019:1709725791108`, // dont know numbers
-  //   "2": {
-  //     "22": {
-  //       "1": {
-  //         "1": appId,
-  //         "2": { "1": fileKey }
-  //     },
-  //     "2": { "1": content.length, "2": prevContent.length,
-  //       "3":[
-  //         {
-  //         "1": prevContent.length,
-  //         "2": {"1": '__prevContent__'}, "3":3}, { "1":'__new_content__', "2":{ "1": '' }, "3":2}]}, "3":"0" }
-  //       },
-  //   "3": commandNumber
-  //   };
-
-    const body = {
-      "1": `${login}:-65675019:1709725791108`, // dont know numbers
-      "2": {
-        "22": {
-          "1": {
-            "1": appId,
-            "2": { "1": fileKey }
+  const body = {
+    "1": `${login}:-65675019:1709725791108`, // dont know numbers
+    "2": {
+      "22": {
+        "1": {
+          "1": appId,
+          "2": { "1": fileKey }
+      },
+      "2": { "1": content.length, "2": prevContent.length,
+        "3":[
+          {
+          "1": prevContent.length,
+          "2": {"1":prevContent}, "3":3}, { "1":content.length, "2":{ "1":content }, "3":2}]}, "3":"0" }
         },
-        "2": { "1": content.length, "2": prevContent.length,
-          "3":[
-            {
-            "1": prevContent.length,
-            "2": {"1":prevContent}, "3":3}, { "1":content.length, "2":{ "1":content }, "3":2}]}, "3":"0" }
-          },
-      "3": commandNumber
-      };
-
-    // console.log('changeScriptFile sent with body ' + JSON.stringify(body));
+    "3": commandNumber
+  };
 
   const res = await page.evaluate((_xsrfToken, _body) => {
     const payload = {
