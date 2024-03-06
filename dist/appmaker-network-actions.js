@@ -70,36 +70,6 @@ var CommnadId;
 (function (CommnadId) {
     CommnadId[CommnadId["paste"] = 22] = "paste";
 })(CommnadId || (CommnadId = {}));
-// {
-//   "response": [{
-//     "changeScriptCommand": {
-//       "key": {
-//         "applicationKey": "KIx47x0MqU",
-//         "localKey": "KvnDexb6pseSmosN462IoKCbff76H6ts"
-//       },
-//       "scriptChange": {
-//         "lengthAfter": 1467,
-//         "lengthBefore": 1466,
-//         "modifications": [{
-//           "length": 26,
-//           "type": "SKIP"
-//         }, {
-//           "length": 1,
-//           "text": "1",
-//           "type": "INSERT"
-//         }, {
-//           "length": 1440,
-//           "type": "SKIP"
-//         }]
-//       },
-//       "sequenceNumber": "4291"
-//     }
-//   }]
-// }
-// res { response: [ { addModelDataSourceCommand: [Object] } ] }
-// string application_key = 1;
-// // TODO(b/171309255): add comments.
-// int64 sequence_number = 2;
 async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
     const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
         const body = {
@@ -159,33 +129,50 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
     console.log('changeScriptFile commandNumber', commandNumber);
     console.log('changeScriptFile xsrfToken', xsrfToken);
     console.log('changeScriptFile fileKey', fileKey);
-    const res = await page.evaluate((_xsrfToken, _appId, _login, _fileKey, _commandNumber, _prevContent, _content) => {
-        const body = {
-            "1": `${_login}:-906270374:1702911393847`, // dont know numbers
-            "2": {
-                "22": {
-                    "1": {
-                        "1": _appId,
-                        "2": { "1": 'z5c8syerDFnO7gio9jyNcqsG86WPymNC' }
-                    },
-                    "2": { "1": _content.length, "2": _prevContent.length,
-                        "3": [
-                            {
-                                "1": _prevContent.length,
-                                "2": { "1": _prevContent }, "3": 3
-                            }, { "1": _content.length, "2": { "1": _content }, "3": 2 }
-                        ] }, "3": "0"
-                }
-            },
-            "3": _commandNumber
-        };
+    // const body = {
+    //   "1": `${login}:65675019:1709725791108`, // dont know numbers
+    //   "2": {
+    //     "22": {
+    //       "1": {
+    //         "1": appId,
+    //         "2": { "1": fileKey }
+    //     },
+    //     "2": { "1": content.length, "2": prevContent.length,
+    //       "3":[
+    //         {
+    //         "1": prevContent.length,
+    //         "2": {"1": '__prevContent__'}, "3":3}, { "1":'__new_content__', "2":{ "1": '' }, "3":2}]}, "3":"0" }
+    //       },
+    //   "3": commandNumber
+    //   };
+    const body = {
+        "1": `${login}:-65675019:1709725791108`, // dont know numbers
+        "2": {
+            "22": {
+                "1": {
+                    "1": appId,
+                    "2": { "1": fileKey }
+                },
+                "2": { "1": content.length, "2": prevContent.length,
+                    "3": [
+                        {
+                            "1": prevContent.length,
+                            "2": { "1": prevContent }, "3": 3
+                        }, { "1": content.length, "2": { "1": content }, "3": 2 }
+                    ] }, "3": "0"
+            }
+        },
+        "3": commandNumber
+    };
+    // console.log('changeScriptFile sent with body ' + JSON.stringify(body));
+    const res = await page.evaluate((_xsrfToken, _body) => {
         const payload = {
             method: 'POST',
             headers: {
                 'content-type': 'application/jspblite2', // check what the type
                 'x-framework-xsrf-token': _xsrfToken,
             },
-            body: JSON.stringify(body),
+            body: _body,
         };
         return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command', payload)
             .then(r => r.body)
@@ -223,7 +210,7 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => reject('Error occurred while reading binary string');
         }));
-    }, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content);
+    }, xsrfToken, JSON.stringify(body));
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }

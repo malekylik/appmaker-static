@@ -6,6 +6,7 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 const appmaker_network_actions_1 = require("./appmaker-network-actions");
+const O = require("fp-ts/lib/Option");
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
 async function openBrowser(options = {}) {
@@ -158,8 +159,39 @@ async function runInApplicationPageContext(applicationId, credentials, options, 
     let page = null;
     try {
         page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+        async function saveCall(callback) {
+            try {
+                return O.some(await callback(page));
+            }
+            catch (e) {
+                console.log('saveCall: wasnt able to performe call ' + e);
+                console.log('callAppMakerApp closing');
+                await browser.close();
+                return O.none;
+            }
+        }
+        const pageAPI = {
+            getXSRFToken() {
+                return saveCall(appmaker_network_actions_1.getXSRFToken);
+            },
+            getCommandNumberFromApp() {
+                return saveCall(appmaker_network_actions_1.getCommandNumberFromApp);
+            },
+            getCommandNumberFromServer(xsrfToken, appKey, currentCommandNumber) {
+                return saveCall(page => (0, appmaker_network_actions_1.retrieveCommands)(page, xsrfToken, appKey, currentCommandNumber));
+            },
+            changeScriptFile(xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) {
+                return saveCall(page => (0, appmaker_network_actions_1.changeScriptFile)(page, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content));
+            },
+            close() {
+                return saveCall(async (page) => {
+                    await page.close();
+                    await browser.close();
+                });
+            }
+        };
         if (isAppPage(page.url())) {
-            await callback(page);
+            await callback(pageAPI);
         }
         else {
             throw new Error('unknown page: taking screen');

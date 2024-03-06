@@ -118,6 +118,17 @@ enum CommnadId {
 // // TODO(b/171309255): add comments.
 // int64 sequence_number = 2;
 
+export type RequestResponse = { response: Array<{ changeScriptCommand: {
+  key: { applicationKey: string; localKey: string; };
+  scriptChange: {
+    lengthAfter: number;
+    lengthBefore: number;
+    modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
+  };
+  sequenceNumber: string;
+} }> };
+export type RequestError = { type: string; message: string; };
+
 export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, appKey: string, currentCommandNumber: string) {
   const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
     const body = {
@@ -174,17 +185,6 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
     }));
   }, xsrfToken, appKey, currentCommandNumber) as string;
 
-  type RequestResponse = { response: Array<{ changeScriptCommand: {
-    key: { applicationKey: string; localKey: string; };
-    scriptChange: {
-      lengthAfter: number;
-      lengthBefore: number;
-      modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
-    };
-    sequenceNumber: string;
-  } }> };
-  type RequestError = { type: string; message: string; };
-
   const parsedRes: RequestResponse | RequestError = JSON.parse(res);
 
   return parsedRes;
@@ -195,31 +195,50 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
   console.log('changeScriptFile xsrfToken', xsrfToken);
   console.log('changeScriptFile fileKey', fileKey);
   
-  const res = await page.evaluate((_xsrfToken, _appId, _login, _fileKey, _commandNumber, _prevContent, _content) => {
+  // const body = {
+  //   "1": `${login}:65675019:1709725791108`, // dont know numbers
+  //   "2": {
+  //     "22": {
+  //       "1": {
+  //         "1": appId,
+  //         "2": { "1": fileKey }
+  //     },
+  //     "2": { "1": content.length, "2": prevContent.length,
+  //       "3":[
+  //         {
+  //         "1": prevContent.length,
+  //         "2": {"1": '__prevContent__'}, "3":3}, { "1":'__new_content__', "2":{ "1": '' }, "3":2}]}, "3":"0" }
+  //       },
+  //   "3": commandNumber
+  //   };
+
     const body = {
-      "1": `${_login}:-906270374:1702911393847`, // dont know numbers
+      "1": `${login}:-65675019:1709725791108`, // dont know numbers
       "2": {
         "22": {
           "1": {
-            "1": _appId,
-            "2": { "1": 'z5c8syerDFnO7gio9jyNcqsG86WPymNC' }
+            "1": appId,
+            "2": { "1": fileKey }
         },
-        "2": { "1": _content.length, "2": _prevContent.length,
+        "2": { "1": content.length, "2": prevContent.length,
           "3":[
             {
-            "1": _prevContent.length,
-            "2": {"1":_prevContent}, "3":3}, { "1":_content.length, "2":{ "1":_content }, "3":2}]}, "3":"0" }
+            "1": prevContent.length,
+            "2": {"1":prevContent}, "3":3}, { "1":content.length, "2":{ "1":content }, "3":2}]}, "3":"0" }
           },
-      "3": _commandNumber
+      "3": commandNumber
       };
-  
+
+    // console.log('changeScriptFile sent with body ' + JSON.stringify(body));
+
+  const res = await page.evaluate((_xsrfToken, _body) => {
     const payload = {
       method: 'POST',
        headers: {
         'content-type': 'application/jspblite2', // check what the type
         'x-framework-xsrf-token': _xsrfToken,
       },
-       body: JSON.stringify(body),
+       body: _body,
     };
   
     return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command', payload)
@@ -260,7 +279,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) as string;
+  }, xsrfToken, JSON.stringify(body)) as string;
 
   type RequestResponse = { response: Array<{ changeScriptCommand: {
     key: { applicationKey: string; localKey: string; };

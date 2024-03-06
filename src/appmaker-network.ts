@@ -4,7 +4,9 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
-import { getXSRFToken, exportProject, takeScreenshoot } from './appmaker-network-actions';
+import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, retrieveCommands, RequestResponse, RequestError, changeScriptFile } from './appmaker-network-actions';
+
+import * as O from 'fp-ts/lib/Option';
 
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
@@ -186,16 +188,69 @@ export async function callAppMakerApp(applicationId: string, credentials: { logi
   }
 };
 
-export async function runInApplicationPageContext(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' }, callback: (page: puppeteer.Page) => Promise<unknown>) {
+export interface PageAPI {
+  getXSRFToken(): Promise<O.Option<string>>;
+
+  getCommandNumberFromApp(): Promise<O.Option<string>>;
+
+  getCommandNumberFromServer(xsrfToken: string, appKey: string, currentCommandNumber: string): Promise<O.Option<RequestResponse | RequestError>>;
+
+  changeScriptFile(
+    xsrfToken: string, appId: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string
+  ): Promise<O.Option<RequestResponse | RequestError>>;
+
+  close(): Promise<O.Some<void>>;
+}
+
+export async function runInApplicationPageContext(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' }, callback: (pageAPI: PageAPI) => Promise<unknown>) {
   const browser = await openBrowser(options);
 
-  let page = null;
+  let page: puppeteer.Page | null = null;
 
   try {
-      page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+    page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
+
+    async function saveCall<T>(callback: (page: puppeteer.Page) => Promise<T>): Promise<O.Option<T>> {
+      try {
+        return O.some(await callback(page!));
+      } catch (e) {
+        console.log('saveCall: wasnt able to performe call ' + e);
+        console.log('callAppMakerApp closing');
+        await browser.close();
+
+        return O.none;
+      }
+    }
+
+    const pageAPI: PageAPI = {
+      getXSRFToken() {
+        return saveCall(getXSRFToken);
+      },
+
+      getCommandNumberFromApp() {
+        return saveCall(getCommandNumberFromApp);
+      },
+
+      getCommandNumberFromServer(xsrfToken: string, appKey: string, currentCommandNumber: string) {
+        return saveCall(page => retrieveCommands(page, xsrfToken, appKey, currentCommandNumber));
+      },
+
+      changeScriptFile(
+        xsrfToken: string, appId: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string
+      ) {
+        return saveCall(page => changeScriptFile(page, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content));
+      },
+
+      close() {
+        return saveCall(async (page) => {
+          await page.close();
+          await browser.close();
+        }) as Promise<O.Some<void>>;
+      }
+    };
 
     if (isAppPage(page.url())) {
-      await callback(page);
+      await callback(pageAPI);
     } else {
       throw new Error('unknown page: taking screen');
     }
