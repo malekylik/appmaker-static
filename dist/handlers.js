@@ -175,6 +175,104 @@ async function saveCallToBrowser(browser, callback) {
     }
     return null;
 }
+async function handleUserInput(api, data) {
+    let command = data.toString();
+    command = command.slice(0, command.length - 1);
+    if (command === InteractiveModeCommands.close) {
+        await api.close();
+    }
+    else if (command === InteractiveModeCommands.printWorkingDirectory) {
+        console.log(api.getOptions().outDir);
+    }
+    else if (command === InteractiveModeCommands.printCommandNumber) {
+        console.log(api.getCommandNumber());
+    }
+    else if (command === InteractiveModeCommands.listFiles) {
+    }
+    else if (command === InteractiveModeCommands.export) {
+    }
+    else if (command === InteractiveModeCommands.screenshot) {
+    }
+    else if (command === InteractiveModeCommands.update) {
+        console.log('update');
+    }
+    else {
+        console.log('unknown command', command);
+    }
+}
+function getFuncToSyncWorkspace(api) {
+    let commangFromServerPr = null;
+    return async function checkForCommandNumber() {
+        try {
+            if (commangFromServerPr !== null) {
+                return;
+            }
+            commangFromServerPr = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
+            const _commandNumber = await commangFromServerPr;
+            commangFromServerPr = null;
+            if (_commandNumber !== null && typeof _commandNumber === 'object' && 'response' in (_commandNumber) && _commandNumber.response) {
+                console.log('Your application is out-of-day, please reload');
+                console.log('res', _commandNumber);
+            }
+        }
+        catch (e) {
+            console.log('getFuncToSyncWorkspace error:', e);
+        }
+    };
+}
+function watchProjectFiles(folder, api) {
+    let fsWait = false;
+    const ac = new AbortController();
+    const { signal } = ac;
+    (0, node_fs_1.watch)(folder, { signal }, (event, filename) => {
+        if (filename) {
+            if (fsWait)
+                return;
+            fsWait = setTimeout(() => {
+                fsWait = false;
+            }, 1000);
+            console.log(`${filename} file Changed`);
+            const file = api.getGeneratedFiles().find(f => f.split('/')[f.split('/').length - 1] === filename);
+            if (file) {
+                readFile(file, { encoding: 'utf-8' })
+                    .then((newContent) => {
+                    const script = api.getApp().scripts.find(script => script.name === filename.replace('.js', ''));
+                    if (script) {
+                        const p = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(t, api.getOptions().appId, api.getOptions().credentials.login, script.key, c, script.code || '', newContent)))));
+                        p.then((r) => {
+                            script.code = newContent;
+                            api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
+                        });
+                        console.log('---updating script---');
+                        return p;
+                    }
+                    else {
+                        console.log(`script with name ${filename} wasn't registered`);
+                    }
+                    return Promise.resolve(O.none);
+                })
+                    .then(done => {
+                    if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
+                        console.log('Script updated: ' + file);
+                    }
+                    else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
+                        console.log('Updating script error: ' + JSON.stringify(done.value));
+                    }
+                    else {
+                        console.log('Updating script: unknown response', done);
+                    }
+                })
+                    .catch(e => {
+                    console.log('Updating script error: ' + e);
+                });
+            }
+            else {
+                console.log('Couldt find file with name', filename);
+            }
+        }
+    });
+    return { unsubscribe: () => { ac.abort(); } };
+}
 var InteractiveModeCommands;
 (function (InteractiveModeCommands) {
     InteractiveModeCommands["close"] = "close";
@@ -193,142 +291,56 @@ async function handleInteractiveApplicationMode(options) {
     await postRemoteZipActionsHandler(passedPathToExportedZip, pathToProject, options.outDir);
     function run(pageAPI) {
         return new Promise(async (resolve, reject) => {
+            let syncInterval = -1;
+            let watcherSubscription = { unsubscribe: () => { } };
             let xsrfToken = await pageAPI.getXSRFToken();
             let commandNumber = await pageAPI.getCommandNumberFromApp();
+            console.clear();
+            console.log('---started---');
             (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(console.log('run xsrfToken ' + v))));
             (0, function_1.pipe)(commandNumber, O.chain(v => O.some(console.log('run commandNumber ' + v))));
             const buttonPressesLogFile = options.outDir;
-            console.log(`Watching for file changes on ${buttonPressesLogFile}`);
-            let fsWait = false;
-            (0, node_fs_1.watch)(buttonPressesLogFile, (event, filename) => {
-                if (filename) {
-                    if (fsWait)
-                        return;
-                    fsWait = setTimeout(() => {
-                        fsWait = false;
-                    }, 1000);
-                    console.log(`${filename} file Changed`);
-                    console.log('event', event);
-                    const file = generatedFiles.find(f => f.split('/')[f.split('/').length - 1] === filename);
-                    if (file) {
-                        readFile(file, { encoding: 'utf-8' })
-                            .then((newContent) => {
-                            const script = app.scripts.find(script => script.name === filename.replace('.js', ''));
-                            if (script) {
-                                const p = (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, script.key, c, script.code || '', newContent)))));
-                                p.then((r) => {
-                                    script.code = newContent;
-                                    commandNumber = (0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : commandNumber));
-                                });
-                                return p;
-                            }
-                            else {
-                                console.log(`script with name ${filename} wasn't registered`);
-                            }
-                            return Promise.resolve(O.none);
-                        })
-                            .then(done => {
-                            if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
-                                console.log('Updated script: ' + file);
-                            }
-                            else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
-                                console.log('Updated script error: ' + done.value);
-                            }
-                            else {
-                                console.log('Updated script: unknown response', done);
-                            }
-                        })
-                            .catch(e => {
-                            console.log('updating content ended with a error ' + e);
-                        });
-                    }
-                    else {
-                        console.log('Couldt find file with name', filename);
-                    }
-                }
-            });
-            async function callback(data) {
-                let command = data.toString();
-                command = command.slice(0, command.length - 1);
-                if (command === InteractiveModeCommands.close) {
-                    node_process_1.stdin.removeListener('data', callback);
+            const userAPI = {
+                getOptions() {
+                    return options;
+                },
+                getPageAPI() {
+                    return pageAPI;
+                },
+                getGeneratedFiles() {
+                    return generatedFiles;
+                },
+                getApp() {
+                    return app;
+                },
+                getCommandNumber() {
+                    return commandNumber;
+                },
+                setCommandNumber(_commandNumber) {
+                    commandNumber = _commandNumber;
+                },
+                getXsrfToken() {
+                    return xsrfToken;
+                },
+                async close() {
+                    node_process_1.stdin.removeListener('data', handler);
+                    clearInterval(syncInterval);
+                    watcherSubscription.unsubscribe();
                     await pageAPI.close();
-                    console.log('browser closed');
                     node_process_1.stdin.end();
+                    console.log('browser closed');
                     process.exit(0);
-                }
-                else if (command === InteractiveModeCommands.printWorkingDirectory) {
-                    console.log(options.outDir);
-                }
-                else if (command === InteractiveModeCommands.printCommandNumber) {
-                    console.log(commandNumber);
-                }
-                else if (command === InteractiveModeCommands.listFiles) {
-                    // try {
-                    //   const files: Array<string> = await readdir(options.outDir);
-                    //   const filesAsString = files.reduce((str, file) => str + `\n${file}`, '');
-                    //   console.log(filesAsString);
-                    // } catch (e) {
-                    //   console.log('ls failed with error: ', e);
-                    // }
-                }
-                else if (command === InteractiveModeCommands.export) {
-                    // try {
-                    //   const passedPath = await app(page!, options.outDir);
-                    //   let pathToProject = passedPath;
-                    //   pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
-                    //   await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
-                    //   const [scriptsNames, modelsNames, viewsNames] = await Promise.all([
-                    //     getScriptsNames(pathToProject),
-                    //     getModelsNames(pathToProject),
-                    //     getViewsNames(pathToProject),
-                    //   ]);
-                    //   const [scriptsFiles, modelsFiles, viewsFiles] = await Promise.all([
-                    //     readAppMakerScripts(pathToProject, scriptsNames),
-                    //     readAppMakerModels(pathToProject, modelsNames),
-                    //     readAppMakerViews(pathToProject, viewsNames),
-                    //   ]);
-                    //   initAppMakerApp(_app, modelsFiles, viewsFiles, scriptsFiles, []);
-                    //   const pathToGenerateJSProjectDir = options.outDir;
-                    //   generatedFiles = await generateJSProjectForAppMaker(pathToGenerateJSProjectDir, _app);
-                    // } catch (e) {
-                    //   console.log('Export failed with error: ', e);
-                    // }
-                }
-                else if (command === InteractiveModeCommands.screenshot) {
-                    // try {
-                    //   await takeScreenshoot(page!);
-                    //   console.log('screenshot done');
-                    // } catch (e) {
-                    //   console.log(`${InteractiveModeCommands.screenshot} failed with error: `, e);
-                    // }
-                }
-                else if (command === InteractiveModeCommands.update) {
-                    console.log('update');
-                }
-                else {
-                    console.log('unknown command', command);
-                }
+                },
+            };
+            console.log(`Watching for file changes on ${buttonPressesLogFile}`);
+            watcherSubscription = watchProjectFiles(options.outDir, userAPI);
+            process.stdout.write('repl: ');
+            function handler(data) {
+                return handleUserInput(userAPI, data);
             }
-            node_process_1.stdin.on('data', callback);
-            let pr = null;
-            async function checkForCommandNumber() {
-                if (pr !== null) {
-                    return;
-                }
-                pr = (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.getCommandNumberFromServer(t, options.appId, c)))));
-                const _commandNumber = await pr;
-                pr = null;
-                // console.log('res', _commandNumber);
-                // console.log('current Command', commandNumber);
-                if (_commandNumber.response) {
-                    // console.log(`Command number changed. Prev: ${_commandNumber.response[0].changeScriptCommand.sequenceNumber }. Current: ${commandNumber}`);
-                    // commandNumber = _commandNumber.response[0].changeScriptCommand.sequenceNumber ;
-                    console.log('Your application is out-of-day, please reload');
-                    console.log('res', _commandNumber);
-                }
-            }
-            setInterval(checkForCommandNumber, 5000);
+            ;
+            node_process_1.stdin.on('data', handler);
+            syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000);
         });
     }
     (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);
