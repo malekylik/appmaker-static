@@ -55,6 +55,8 @@ export async function postRemoteZipActionsHandler(pathToZip: string, pathToProje
 
   console.log('remove', pathToProject);
   await rm(pathToProject, { recursive: true });
+
+  process.chdir(process.env.PWD || '');
 }
 
 async function createAppMakerApplication(pathToUnzipProjectFolder: string): Promise<App> {
@@ -216,38 +218,36 @@ export async function handleRemoteApplicationMode(options: RemoteMode): Promise<
   }
 }
 
-async function saveCallToBrowser<T>(browser: puppeteer.Browser, callback: (browser: puppeteer.Browser) => T): Promise<T | null> {
-  try {
-    const res = callback(browser);
-
-    if (res instanceof Promise) {
-      return await res;
-    }
-
-    return res;
-  } catch (e) {
-    console.log('fail to run command', e);
-  }
-
-  return null;
-}
-
 type HandleUserInputAPI = {
   getOptions(): InteractiveMode;
 
   getPageAPI(): PageAPI;
 
   getGeneratedFiles(): string[];
+  setGeneratedFiles(generatedFiles: string[]): void;
 
   getApp(): App;
+  setApp(app: App): void;
 
   getCommandNumber(): O.Option<string>;
   setCommandNumber(commandNumber: O.Option<string>): void;
 
   getXsrfToken(): O.Option<string>;
 
+  watch(): void;
+
   close(): Promise<void>;
 };
+
+async function handleExportProject(pageAPI: PageAPI, appId: string, outDir: string): Promise<{ app: App; generatedFiles: string[] }> {
+  const passedPathToExportedZip = pipe(await pageAPI.exportApplication(appId), O.match(() => '', v => v));
+  const pathToProject = await unzipProject(passedPathToExportedZip);
+  const res = await createAppAndGenerateProject(pathToProject, outDir);
+
+  await postRemoteZipActionsHandler(passedPathToExportedZip, pathToProject, outDir);
+
+  return res;
+}
 
 async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
   let command = data.toString();
@@ -262,7 +262,29 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
   } else if (command === InteractiveModeCommands.listFiles) {
 
   } else if (command === InteractiveModeCommands.export) {
+    const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
 
+    api.setGeneratedFiles(generatedFiles);
+    api.setApp(app);
+
+    const commangFromServer = await pipe(
+      api.getXsrfToken(),
+      O.match(() => Promise.resolve(O.none), t => pipe(
+        api.getCommandNumber(),
+        O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c))
+      ))
+    );
+
+
+    api.setCommandNumber(pipe(
+      commangFromServer,
+      O.chain(v => isRequestResponse(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())
+    ));
+
+    api.watch();
+
+    initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
+    // console.log(JSON.stringify(commangFromServer));
   } else if (command === InteractiveModeCommands.screenshot) {
 
   } else if (command === InteractiveModeCommands.update) {
@@ -280,7 +302,7 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
       if (commangFromServerPr !== null) {
         return;
       }
-  
+
       commangFromServerPr = pipe(
         api.getXsrfToken(),
         O.match(() => Promise.resolve(O.none), t => pipe(
@@ -380,6 +402,24 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
   return { unsubscribe: () => { ac.abort(); } };
 }
 
+function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string) {
+  console.clear();
+  console.log('Interactive Mode');
+
+  pipe(
+    xsrfToken,
+    O.chain(v => O.some(console.log('run xsrfToken ' + v)))
+  );
+  pipe(
+    commandNumber,
+    O.chain(v => O.some(console.log('run commandNumber ' + v)))
+  );
+
+  console.log(`Watching for file changes on ${outDir}`);
+
+  process.stdout.write('repl: ');
+}
+
 enum InteractiveModeCommands {
   close = 'close',
   printWorkingDirectory = 'pwd',
@@ -391,35 +431,15 @@ enum InteractiveModeCommands {
 }
 
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
-  console.log('interactive');
-
-  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
-  const pathToProject = await unzipProject(passedPathToExportedZip);
-  const { app, generatedFiles } = await createAppAndGenerateProject(pathToProject, options.outDir);
-
-  await postRemoteZipActionsHandler(passedPathToExportedZip, pathToProject, options.outDir);
-
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
+      let { app, generatedFiles } = await handleExportProject(pageAPI, options.appId, options.outDir); 
+
       let syncInterval = -1;
       let watcherSubscription: { unsubscribe: () => void } = { unsubscribe: () => {} };
 
       let xsrfToken = await pageAPI.getXSRFToken();
       let commandNumber = await pageAPI.getCommandNumberFromApp();
-
-      console.clear();
-      console.log('---started---');
-
-      pipe(
-        xsrfToken,
-        O.chain(v => O.some(console.log('run xsrfToken ' + v)))
-      );
-      pipe(
-        commandNumber,
-        O.chain(v => O.some(console.log('run commandNumber ' + v)))
-      );
-
-      const buttonPressesLogFile = options.outDir;
 
       const userAPI: HandleUserInputAPI = {
         getOptions() {
@@ -433,9 +453,15 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
         getGeneratedFiles() {
           return generatedFiles;
         },
+        setGeneratedFiles(_generatedFiles) {
+          generatedFiles = _generatedFiles;
+        },
 
         getApp() {
           return app;
+        },
+        setApp(_app) {
+          app = _app;
         },
 
         getCommandNumber() {
@@ -448,6 +474,11 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
 
         getXsrfToken() {
           return xsrfToken;
+        },
+
+        watch() {
+          watcherSubscription.unsubscribe();
+          watcherSubscription = watchProjectFiles(options.outDir, userAPI);
         },
 
         async close() {
@@ -464,10 +495,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
         },
       };
 
-      console.log(`Watching for file changes on ${buttonPressesLogFile}`);
       watcherSubscription = watchProjectFiles(options.outDir, userAPI);
-
-      process.stdout.write('repl: ');
 
       function handler(data: Buffer) {
         return handleUserInput(userAPI, data)
@@ -476,6 +504,8 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       stdin.on('data', handler);
 
       syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000) as unknown as number;
+
+      initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
     });
   }
 

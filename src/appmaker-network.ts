@@ -189,6 +189,8 @@ export async function callAppMakerApp(applicationId: string, credentials: { logi
 };
 
 export interface PageAPI {
+  exportApplication(applicationId: string): Promise<O.Option<string>>;
+
   getXSRFToken(): Promise<O.Option<string>>;
 
   getCommandNumberFromApp(): Promise<O.Option<string>>;
@@ -223,6 +225,10 @@ export async function runInApplicationPageContext(applicationId: string, credent
     }
 
     const pageAPI: PageAPI = {
+      exportApplication(applicationId: string) {
+        return saveCall(page => app(page, applicationId));
+      },
+
       getXSRFToken() {
         return saveCall(getXSRFToken);
       },

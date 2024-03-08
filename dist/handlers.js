@@ -44,6 +44,7 @@ async function postRemoteZipActionsHandler(pathToZip, pathToProject, outDir) {
     await rm(pathToZip);
     console.log('remove', pathToProject);
     await rm(pathToProject, { recursive: true });
+    process.chdir(process.env.PWD || '');
 }
 exports.postRemoteZipActionsHandler = postRemoteZipActionsHandler;
 async function createAppMakerApplication(pathToUnzipProjectFolder) {
@@ -162,18 +163,12 @@ async function handleRemoteApplicationMode(options) {
     }
 }
 exports.handleRemoteApplicationMode = handleRemoteApplicationMode;
-async function saveCallToBrowser(browser, callback) {
-    try {
-        const res = callback(browser);
-        if (res instanceof Promise) {
-            return await res;
-        }
-        return res;
-    }
-    catch (e) {
-        console.log('fail to run command', e);
-    }
-    return null;
+async function handleExportProject(pageAPI, appId, outDir) {
+    const passedPathToExportedZip = (0, function_1.pipe)(await pageAPI.exportApplication(appId), O.match(() => '', v => v));
+    const pathToProject = await unzipProject(passedPathToExportedZip);
+    const res = await createAppAndGenerateProject(pathToProject, outDir);
+    await postRemoteZipActionsHandler(passedPathToExportedZip, pathToProject, outDir);
+    return res;
 }
 async function handleUserInput(api, data) {
     let command = data.toString();
@@ -190,6 +185,14 @@ async function handleUserInput(api, data) {
     else if (command === InteractiveModeCommands.listFiles) {
     }
     else if (command === InteractiveModeCommands.export) {
+        const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
+        api.setGeneratedFiles(generatedFiles);
+        api.setApp(app);
+        const commangFromServer = await (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
+        api.setCommandNumber((0, function_1.pipe)(commangFromServer, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
+        api.watch();
+        initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
+        // console.log(JSON.stringify(commangFromServer));
     }
     else if (command === InteractiveModeCommands.screenshot) {
     }
@@ -273,6 +276,14 @@ function watchProjectFiles(folder, api) {
     });
     return { unsubscribe: () => { ac.abort(); } };
 }
+function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
+    console.clear();
+    console.log('Interactive Mode');
+    (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(console.log('run xsrfToken ' + v))));
+    (0, function_1.pipe)(commandNumber, O.chain(v => O.some(console.log('run commandNumber ' + v))));
+    console.log(`Watching for file changes on ${outDir}`);
+    process.stdout.write('repl: ');
+}
 var InteractiveModeCommands;
 (function (InteractiveModeCommands) {
     InteractiveModeCommands["close"] = "close";
@@ -284,22 +295,13 @@ var InteractiveModeCommands;
     InteractiveModeCommands["update"] = "update";
 })(InteractiveModeCommands || (InteractiveModeCommands = {}));
 async function handleInteractiveApplicationMode(options) {
-    console.log('interactive');
-    const passedPathToExportedZip = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions);
-    const pathToProject = await unzipProject(passedPathToExportedZip);
-    const { app, generatedFiles } = await createAppAndGenerateProject(pathToProject, options.outDir);
-    await postRemoteZipActionsHandler(passedPathToExportedZip, pathToProject, options.outDir);
     function run(pageAPI) {
         return new Promise(async (resolve, reject) => {
+            let { app, generatedFiles } = await handleExportProject(pageAPI, options.appId, options.outDir);
             let syncInterval = -1;
             let watcherSubscription = { unsubscribe: () => { } };
             let xsrfToken = await pageAPI.getXSRFToken();
             let commandNumber = await pageAPI.getCommandNumberFromApp();
-            console.clear();
-            console.log('---started---');
-            (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(console.log('run xsrfToken ' + v))));
-            (0, function_1.pipe)(commandNumber, O.chain(v => O.some(console.log('run commandNumber ' + v))));
-            const buttonPressesLogFile = options.outDir;
             const userAPI = {
                 getOptions() {
                     return options;
@@ -310,8 +312,14 @@ async function handleInteractiveApplicationMode(options) {
                 getGeneratedFiles() {
                     return generatedFiles;
                 },
+                setGeneratedFiles(_generatedFiles) {
+                    generatedFiles = _generatedFiles;
+                },
                 getApp() {
                     return app;
+                },
+                setApp(_app) {
+                    app = _app;
                 },
                 getCommandNumber() {
                     return commandNumber;
@@ -321,6 +329,10 @@ async function handleInteractiveApplicationMode(options) {
                 },
                 getXsrfToken() {
                     return xsrfToken;
+                },
+                watch() {
+                    watcherSubscription.unsubscribe();
+                    watcherSubscription = watchProjectFiles(options.outDir, userAPI);
                 },
                 async close() {
                     node_process_1.stdin.removeListener('data', handler);
@@ -332,15 +344,14 @@ async function handleInteractiveApplicationMode(options) {
                     process.exit(0);
                 },
             };
-            console.log(`Watching for file changes on ${buttonPressesLogFile}`);
             watcherSubscription = watchProjectFiles(options.outDir, userAPI);
-            process.stdout.write('repl: ');
             function handler(data) {
                 return handleUserInput(userAPI, data);
             }
             ;
             node_process_1.stdin.on('data', handler);
             syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000);
+            initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
         });
     }
     (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);

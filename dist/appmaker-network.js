@@ -171,6 +171,9 @@ async function runInApplicationPageContext(applicationId, credentials, options, 
             }
         }
         const pageAPI = {
+            exportApplication(applicationId) {
+                return saveCall(page => app(page, applicationId));
+            },
             getXSRFToken() {
                 return saveCall(appmaker_network_actions_1.getXSRFToken);
             },

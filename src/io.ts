@@ -43,7 +43,6 @@ export async function readLinterConfig(): Promise<Linter.Config<Linter.RulesReco
   // TODO: fix file path to eslint config
   const linterConfig: Linter.Config<Linter.RulesRecord> = JSON.parse(await readFile('./.eslintrc', 'utf-8'));
 
-
   return linterConfig;
 }
 
