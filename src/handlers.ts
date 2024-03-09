@@ -18,7 +18,7 @@ import * as E from 'fp-ts/lib/Either';
 import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-network-actions';
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
-import { getReplUserInputLine } from './repl-logger';
+import { colorImportantMessage, colorPath, colorValue, getReplUserInputLine } from './repl-logger';
 
 const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
@@ -337,9 +337,9 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
       fsWait = setTimeout(() => {
         fsWait = false;
       }, 1000);
-      logger.log(`${filename} file Changed`);
 
       const file = api.getGeneratedFiles().find(f => parseFilePath(f).fullName === filename);
+      const filenameObj = parseFilePath(filename);
 
       if (file) {
         readFile(file, { encoding: 'utf-8' })
@@ -372,19 +372,19 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                 ));
               });
 
-              logger.log('---updating script---');
+              logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
               logger.putLine(getReplUserInputLine({ state: 'loading' }));
 
               return p;
             } else {
-              logger.log(`script with name ${filename} wasn't registered`);
+              logger.log(`script with name ${colorPath(filenameObj.name)} wasn't registered`);
             }
 
             return Promise.resolve(O.none);
           })
           .then(done => {
             if (O.isSome(done) && isRequestResponse(done.value)) {
-              logger.log('Script updated: ' + filename);
+              logger.log('Script updated: ' + colorPath(filenameObj.name));
               logger.putLine(getReplUserInputLine({ state: 'ready' }));
             } else if (O.isSome(done) && isRequestError(done.value)) {
               logger.log('Updating script error: ' + JSON.stringify(done.value));
@@ -406,18 +406,18 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
 
 function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string) {
   console.clear();
-  logger.log('Interactive Mode');
+  logger.log(colorImportantMessage('Interactive Mode'));
 
   pipe(
     xsrfToken,
-    O.chain(v => O.some(logger.log('run xsrfToken ' + v)))
+    O.chain(v => O.some(logger.log('run xsrfToken ' + colorValue(v))))
   );
   pipe(
     commandNumber,
-    O.chain(v => O.some(logger.log('run commandNumber ' + v)))
+    O.chain(v => O.some(logger.log('run commandNumber ' + colorValue(v))))
   );
 
-  logger.log(`Watching for file changes on ${outDir}`);
+  logger.log(`Watching for file changes on ${colorPath(outDir)}`);
 
   logger.putLine(getReplUserInputLine({ state: 'ready' }));
 }

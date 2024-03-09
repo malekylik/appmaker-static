@@ -33,7 +33,7 @@ export const parseFilePath = (fullPath: string): { fullPath: string; path: strin
   const nameParts = namePart.split('.');
   const extension = nameParts[nameParts.length - 1] || '';
 
-  return { fullPath, path: _path.join(path.sep), fullName: namePart, name: nameParts.slice(0, namePart.length - 1).join('.'), extension };
+  return { fullPath, path: _path.join(path.sep), fullName: namePart, name: nameParts.slice(0, nameParts.length - 1).join('.'), extension };
 };
 
 export const readFile = (fileName: string): TE.TaskEither<string, string> => TE.tryCatch(() => _readFile(fileName), r => r instanceof Error ? r.message : 'readFile: unknown reason');

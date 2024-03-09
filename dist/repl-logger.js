@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReplUserInputLine = void 0;
+exports.colorImportantMessage = exports.colorValue = exports.colorPath = exports.getReplUserInputLine = void 0;
 const chalk = require("chalk");
 function getReplUserInputLine(status) {
     let statusPart = '';
@@ -13,7 +13,7 @@ function getReplUserInputLine(status) {
             ;
         case 'loading':
             {
-                statusPart = chalk.blue('loading');
+                statusPart = chalk.blueBright('loading');
                 break;
             }
             ;
@@ -21,3 +21,15 @@ function getReplUserInputLine(status) {
     return `repl (${statusPart})$ `;
 }
 exports.getReplUserInputLine = getReplUserInputLine;
+function colorPath(path) {
+    return chalk.blue(path);
+}
+exports.colorPath = colorPath;
+function colorValue(value) {
+    return chalk.yellow(value);
+}
+exports.colorValue = colorValue;
+function colorImportantMessage(message) {
+    return chalk.yellowBright(message);
+}
+exports.colorImportantMessage = colorImportantMessage;

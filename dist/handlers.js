@@ -236,8 +236,8 @@ function watchProjectFiles(folder, api) {
             fsWait = setTimeout(() => {
                 fsWait = false;
             }, 1000);
-            logger_1.logger.log(`${filename} file Changed`);
             const file = api.getGeneratedFiles().find(f => (0, filesystem_io_1.parseFilePath)(f).fullName === filename);
+            const filenameObj = (0, filesystem_io_1.parseFilePath)(filename);
             if (file) {
                 readFile(file, { encoding: 'utf-8' })
                     .then((newContent) => {
@@ -248,18 +248,18 @@ function watchProjectFiles(folder, api) {
                             script.code = newContent;
                             api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
                         });
-                        logger_1.logger.log('---updating script---');
+                        logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
                         logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'loading' }));
                         return p;
                     }
                     else {
-                        logger_1.logger.log(`script with name ${filename} wasn't registered`);
+                        logger_1.logger.log(`script with name ${(0, repl_logger_1.colorPath)(filenameObj.name)} wasn't registered`);
                     }
                     return Promise.resolve(O.none);
                 })
                     .then(done => {
                     if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
-                        logger_1.logger.log('Script updated: ' + filename);
+                        logger_1.logger.log('Script updated: ' + (0, repl_logger_1.colorPath)(filenameObj.name));
                         logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
                     }
                     else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
@@ -282,10 +282,10 @@ function watchProjectFiles(folder, api) {
 }
 function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
     console.clear();
-    logger_1.logger.log('Interactive Mode');
-    (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + v))));
-    (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + v))));
-    logger_1.logger.log(`Watching for file changes on ${outDir}`);
+    logger_1.logger.log((0, repl_logger_1.colorImportantMessage)('Interactive Mode'));
+    (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + (0, repl_logger_1.colorValue)(v)))));
+    (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + (0, repl_logger_1.colorValue)(v)))));
+    logger_1.logger.log(`Watching for file changes on ${(0, repl_logger_1.colorPath)(outDir)}`);
     logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
 }
 var InteractiveModeCommands;

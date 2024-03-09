@@ -27,7 +27,7 @@ const parseFilePath = (fullPath) => {
     const namePart = pathParts[pathParts.length - 1] || '';
     const nameParts = namePart.split('.');
     const extension = nameParts[nameParts.length - 1] || '';
-    return { fullPath, path: _path.join(path.sep), fullName: namePart, name: nameParts.slice(0, namePart.length - 1).join('.'), extension };
+    return { fullPath, path: _path.join(path.sep), fullName: namePart, name: nameParts.slice(0, nameParts.length - 1).join('.'), extension };
 };
 exports.parseFilePath = parseFilePath;
 const readFile = (fileName) => TE.tryCatch(() => _readFile(fileName), r => r instanceof Error ? r.message : 'readFile: unknown reason');
