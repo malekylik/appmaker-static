@@ -18,6 +18,7 @@ const E = require("fp-ts/lib/Either");
 const appmaker_network_actions_1 = require("./appmaker-network-actions");
 const filesystem_io_1 = require("./functional/io/filesystem-io");
 const logger_1 = require("./logger");
+const repl_logger_1 = require("./repl-logger");
 const rm = (0, node_util_1.promisify)(node_fs_1.rm);
 const readFile = (0, node_util_1.promisify)(node_fs_1.readFile);
 const exec = (0, node_util_1.promisify)(require('node:child_process').exec);
@@ -248,7 +249,7 @@ function watchProjectFiles(folder, api) {
                             api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
                         });
                         logger_1.logger.log('---updating script---');
-                        logger_1.logger.putLine('repl (loading)$ ');
+                        logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'loading' }));
                         return p;
                     }
                     else {
@@ -259,7 +260,7 @@ function watchProjectFiles(folder, api) {
                     .then(done => {
                     if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
                         logger_1.logger.log('Script updated: ' + filename);
-                        logger_1.logger.putLine('repl (ready)$ ');
+                        logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
                     }
                     else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
                         logger_1.logger.log('Updating script error: ' + JSON.stringify(done.value));
@@ -285,7 +286,7 @@ function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
     (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + v))));
     (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + v))));
     logger_1.logger.log(`Watching for file changes on ${outDir}`);
-    logger_1.logger.putLine('repl (ready)$ ');
+    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
 }
 var InteractiveModeCommands;
 (function (InteractiveModeCommands) {

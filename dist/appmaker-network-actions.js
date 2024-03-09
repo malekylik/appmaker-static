@@ -38,9 +38,9 @@ function toUtfStr(str) {
     return end;
 }
 // key for importing project
-// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => logger.log(r))
 // command used for updating app
-// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => logger.log(r))
 async function getClientEnvironment(page) {
     const resultHandle = await page.evaluateHandle(() => window.clientEnvironment);
     const clientEnvironment = await resultHandle.jsonValue();
@@ -130,14 +130,12 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
                         reader.read().then(({ done, value }) => {
                             // If there is no more data to read
                             if (done) {
-                                console.log('done', done);
                                 controller.close();
                                 return;
                             }
                             // Get the data and send it to the browser via the controller
                             controller.enqueue(value);
                             // Check chunks by logging to the console
-                            console.log(done, value);
                             push();
                         });
                     }
@@ -200,14 +198,12 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
                         reader.read().then(({ done, value }) => {
                             // If there is no more data to read
                             if (done) {
-                                console.log('done', done);
                                 controller.close();
                                 return;
                             }
                             // Get the data and send it to the browser via the controller
                             controller.enqueue(value);
                             // Check chunks by logging to the console
-                            console.log(done, value);
                             push();
                         });
                     }
@@ -251,14 +247,12 @@ function exportProject(applicationId, xsrfToken) {
                     reader.read().then(({ done, value }) => {
                         // If there is no more data to read
                         if (done) {
-                            console.log('done', done);
                             controller.close();
                             return;
                         }
                         // Get the data and send it to the browser via the controller
                         controller.enqueue(value);
                         // Check chunks by logging to the console
-                        console.log(done, value);
                         push();
                     });
                 }

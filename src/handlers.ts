@@ -18,6 +18,7 @@ import * as E from 'fp-ts/lib/Either';
 import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-network-actions';
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
+import { getReplUserInputLine } from './repl-logger';
 
 const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
@@ -372,7 +373,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
               });
 
               logger.log('---updating script---');
-              logger.putLine('repl (loading)$ ');
+              logger.putLine(getReplUserInputLine({ state: 'loading' }));
 
               return p;
             } else {
@@ -384,7 +385,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
           .then(done => {
             if (O.isSome(done) && isRequestResponse(done.value)) {
               logger.log('Script updated: ' + filename);
-              logger.putLine('repl (ready)$ ');
+              logger.putLine(getReplUserInputLine({ state: 'ready' }));
             } else if (O.isSome(done) && isRequestError(done.value)) {
               logger.log('Updating script error: ' + JSON.stringify(done.value));
             } else {
@@ -418,7 +419,7 @@ function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumbe
 
   logger.log(`Watching for file changes on ${outDir}`);
 
-  logger.putLine('repl (ready)$ ');
+  logger.putLine(getReplUserInputLine({ state: 'ready' }));
 }
 
 enum InteractiveModeCommands {

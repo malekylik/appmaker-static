@@ -6,6 +6,7 @@ const { promisify } = require('util');
 const { XMLParser } = require('fast-xml-parser');
 const ts = require("typescript");
 const generate_1 = require("./generate");
+const logger_1 = require("./logger");
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
 const access = promisify(oldAccess);
@@ -129,9 +130,9 @@ async function generateJSProjectForAppMaker(pathToProject, app) {
     for (let i = 0; i < app.scripts.length; i++) {
         let { name, code } = app.scripts[i];
         code = code || '';
-        console.log(`-----${name}-----`);
+        logger_1.logger.log(`-----${name}-----`);
         const pathToFileTSFile = `${pathToProject}/${name}.js`;
-        console.log(pathToFileTSFile);
+        logger_1.logger.log(pathToFileTSFile);
         await writeFile(pathToFileTSFile, code);
         tsFilesToCheck.push(pathToFileTSFile);
     }
@@ -180,7 +181,7 @@ async function writeValidatedScriptsToAppMakerXML(app, lintingReport, pathToProj
         const script = app.scripts[i];
         const report = lintingReport.find(report => report.name === script.name);
         if (report) {
-            console.log('write fixed after linting file', script.name);
+            logger_1.logger.log('write fixed after linting file', script.name);
             const res = (0, generate_1.generateResultXML)(script, report.report.output);
             // TODO: path should come from script object
             promise.push(writeFile(`${getPathToScrips(pathToProject)}/${script.name}.xml`, res));

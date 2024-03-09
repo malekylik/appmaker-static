@@ -12,6 +12,7 @@ import { App } from './appmaker/app';
 import { generateResultXML } from './generate';
 import { LintingReport } from './validate';
 import { TSConfig } from './appmaker/app-validatior';
+import { logger } from './logger';
 
 const readFile = promisify(oldReadFile);
 const readdir = promisify(oldReaddir);
@@ -169,10 +170,10 @@ export async function generateJSProjectForAppMaker(pathToProject: string, app: A
     let { name, code } = app.scripts[i]!;
     code = code || '';
 
-    console.log(`-----${name}-----`);
+    logger.log(`-----${name}-----`);
 
     const pathToFileTSFile = `${pathToProject}/${name}.js`;
-    console.log(pathToFileTSFile);
+    logger.log(pathToFileTSFile);
     await writeFile(pathToFileTSFile, code);
 
     tsFilesToCheck.push(pathToFileTSFile);
@@ -238,7 +239,7 @@ export async function writeValidatedScriptsToAppMakerXML(
     const report = lintingReport.find(report => report.name === script.name);
 
     if (report) {
-      console.log('write fixed after linting file', script.name);
+      logger.log('write fixed after linting file', script.name);
 
       const res = generateResultXML(script, report.report.output);
 
