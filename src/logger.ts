@@ -1,3 +1,17 @@
+import * as chalk from 'chalk';
+
+export function coloringNumber(text: string | number): string {
+  return chalk.yellowBright(text);
+}
+
+export function coloringPath(text: string | number): string {
+  return chalk.cyan(text);
+}
+
+export function coloringCode(text: string | number): string {
+  return chalk.blackBright(text);
+}
+
 class Logger {
   private queuePr: Promise<void> | null = null;
   private logQueue: unknown[] = [];

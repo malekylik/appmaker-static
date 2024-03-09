@@ -166,17 +166,16 @@ export async function generateJSProjectForAppMaker(pathToProject: string, app: A
   const tsFilesToCheck: string[] = [];
 
   for (let i = 0; i < app.scripts.length; i++) {
-    const { name, code } = app.scripts[i]!;
+    let { name, code } = app.scripts[i]!;
+    code = code || '';
 
     console.log(`-----${name}-----`);
 
-    if (code) {
-      const pathToFileTSFile = `${pathToProject}/${name}.js`;
-      console.log(pathToFileTSFile);
-      await writeFile(pathToFileTSFile, code);
+    const pathToFileTSFile = `${pathToProject}/${name}.js`;
+    console.log(pathToFileTSFile);
+    await writeFile(pathToFileTSFile, code);
 
-      tsFilesToCheck.push(pathToFileTSFile);
-    }
+    tsFilesToCheck.push(pathToFileTSFile);
   }
 
   const generatedViews = app.generateJSXForViews();

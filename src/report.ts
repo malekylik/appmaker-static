@@ -1,19 +1,6 @@
 import * as ts from 'typescript';
 import { LintingReport } from './validate';
-import * as chalk from 'chalk';
-
-
-function coloringNumber(text: string | number): string {
-  return chalk.yellowBright(text);
-}
-
-function coloringPath(text: string | number): string {
-  return chalk.cyan(text);
-}
-
-function coloringCode(text: string | number): string {
-  return chalk.blackBright(text);
-}
+import { coloringCode, coloringNumber, coloringPath } from './logger';
 
 export function printTSCheckDiagnostics(diagnostics: ts.Diagnostic[]): void {
   let prevFile = '';

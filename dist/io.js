@@ -127,14 +127,13 @@ async function generateJSProjectForAppMaker(pathToProject, app) {
     await mkdir(pathToProject);
     const tsFilesToCheck = [];
     for (let i = 0; i < app.scripts.length; i++) {
-        const { name, code } = app.scripts[i];
+        let { name, code } = app.scripts[i];
+        code = code || '';
         console.log(`-----${name}-----`);
-        if (code) {
-            const pathToFileTSFile = `${pathToProject}/${name}.js`;
-            console.log(pathToFileTSFile);
-            await writeFile(pathToFileTSFile, code);
-            tsFilesToCheck.push(pathToFileTSFile);
-        }
+        const pathToFileTSFile = `${pathToProject}/${name}.js`;
+        console.log(pathToFileTSFile);
+        await writeFile(pathToFileTSFile, code);
+        tsFilesToCheck.push(pathToFileTSFile);
     }
     const generatedViews = app.generateJSXForViews();
     const pathToTypes = `${pathToProject}/type`;
