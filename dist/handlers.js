@@ -16,6 +16,8 @@ const function_1 = require("fp-ts/lib/function");
 const O = require("fp-ts/lib/Option");
 const E = require("fp-ts/lib/Either");
 const appmaker_network_actions_1 = require("./appmaker-network-actions");
+const filesystem_io_1 = require("./functional/io/filesystem-io");
+const logger_1 = require("./logger");
 const rm = (0, node_util_1.promisify)(node_fs_1.rm);
 const readFile = (0, node_util_1.promisify)(node_fs_1.readFile);
 const exec = (0, node_util_1.promisify)(require('node:child_process').exec);
@@ -27,22 +29,22 @@ function getCommandNumberResponse(response) {
         .sort((a, b) => Number(b.changeScriptCommand.sequenceNumber) - Number(a.changeScriptCommand.sequenceNumber))[0]?.changeScriptCommand.sequenceNumber || '-1';
 }
 async function postOfflineZipActionsHandler(pathToProject, outDir) {
-    console.log('post actions');
+    logger_1.logger.log('post actions');
     process.chdir(pathToProject);
-    console.log('zip to', `${outDir}/app.zip`);
+    logger_1.logger.log('zip to', `${outDir}/app.zip`);
     await exec(`zip -r "${outDir}/app.zip" *`);
-    console.log('remove', pathToProject);
+    logger_1.logger.log('remove', pathToProject);
     await rm(pathToProject, { recursive: true });
 }
 exports.postOfflineZipActionsHandler = postOfflineZipActionsHandler;
 async function postRemoteZipActionsHandler(pathToZip, pathToProject, outDir) {
-    console.log('post actions');
+    logger_1.logger.log('post actions');
     process.chdir(pathToProject);
-    console.log('zip to', `${outDir}/app.zip`);
+    logger_1.logger.log('zip to', `${outDir}/app.zip`);
     await exec(`zip -r "${outDir}/app.zip" *`);
-    console.log('remove', pathToZip);
+    logger_1.logger.log('remove', pathToZip);
     await rm(pathToZip);
-    console.log('remove', pathToProject);
+    logger_1.logger.log('remove', pathToProject);
     await rm(pathToProject, { recursive: true });
     process.chdir(process.env.PWD || '');
 }
@@ -88,12 +90,12 @@ async function validateUnzipProject(passedPath, outDir) {
         const allDiagnostics = (0, validate_1.checkTypes)(generatedFiles, tsConfig);
         (0, report_1.printTSCheckDiagnostics)(allDiagnostics);
         // if (allDiagnostics.length) {
-        //   console.log('TS check doesnt pass. Skip the rest');
+        //   logger.log('TS check doesnt pass. Skip the rest');
         //   return { code: 1 };
         // }
     }
     else {
-        console.log('No file to check for types. TS check skip');
+        logger_1.logger.log('No file to check for types. TS check skip');
     }
     const linterConfig = app.getAppValidator().getLintConfig();
     if (linterConfig) {
@@ -108,14 +110,14 @@ async function validateUnzipProject(passedPath, outDir) {
 async function unzipProject(passedPath) {
     let pathToProject = passedPath;
     pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
-    console.log('unzip to', pathToProject);
+    logger_1.logger.log('unzip to', pathToProject);
     try {
         await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
         return pathToProject;
     }
     catch (e) {
-        console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-        console.log(e);
+        logger_1.logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+        logger_1.logger.log(e);
         process.exit(1);
     }
 }
@@ -133,12 +135,12 @@ async function handleOfflineApplicationMode(options) {
         pathStat = await stat(options.project);
     }
     catch {
-        console.log(`Couldn't find path: ${options.project}`);
+        logger_1.logger.log(`Couldn't find path: ${options.project}`);
         process.exit(1);
     }
     const isZip = path.extname(options.project) === '.zip';
     if (!pathStat.isDirectory() && !isZip) {
-        console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+        logger_1.logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
         process.exit(1);
     }
     let result = null;
@@ -177,10 +179,10 @@ async function handleUserInput(api, data) {
         await api.close();
     }
     else if (command === InteractiveModeCommands.printWorkingDirectory) {
-        console.log(api.getOptions().outDir);
+        logger_1.logger.log(api.getOptions().outDir);
     }
     else if (command === InteractiveModeCommands.printCommandNumber) {
-        console.log(api.getCommandNumber());
+        logger_1.logger.log(api.getCommandNumber());
     }
     else if (command === InteractiveModeCommands.listFiles) {
     }
@@ -192,15 +194,14 @@ async function handleUserInput(api, data) {
         api.setCommandNumber((0, function_1.pipe)(commangFromServer, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
         api.watch();
         initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
-        // console.log(JSON.stringify(commangFromServer));
     }
     else if (command === InteractiveModeCommands.screenshot) {
     }
     else if (command === InteractiveModeCommands.update) {
-        console.log('update');
+        logger_1.logger.log('update');
     }
     else {
-        console.log('unknown command', command);
+        logger_1.logger.log('unknown command', command);
     }
 }
 function getFuncToSyncWorkspace(api) {
@@ -214,12 +215,12 @@ function getFuncToSyncWorkspace(api) {
             const _commandNumber = await commangFromServerPr;
             commangFromServerPr = null;
             if (_commandNumber !== null && typeof _commandNumber === 'object' && 'response' in (_commandNumber) && _commandNumber.response) {
-                console.log('Your application is out-of-day, please reload');
-                console.log('res', _commandNumber);
+                logger_1.logger.log('Your application is out-of-day, please reload');
+                logger_1.logger.log('res', _commandNumber);
             }
         }
         catch (e) {
-            console.log('getFuncToSyncWorkspace error:', e);
+            logger_1.logger.log('getFuncToSyncWorkspace error:', e);
         }
     };
 }
@@ -234,8 +235,8 @@ function watchProjectFiles(folder, api) {
             fsWait = setTimeout(() => {
                 fsWait = false;
             }, 1000);
-            console.log(`${filename} file Changed`);
-            const file = api.getGeneratedFiles().find(f => f.split('/')[f.split('/').length - 1] === filename);
+            logger_1.logger.log(`${filename} file Changed`);
+            const file = api.getGeneratedFiles().find(f => (0, filesystem_io_1.parseFilePath)(f).fullName === filename);
             if (file) {
                 readFile(file, { encoding: 'utf-8' })
                     .then((newContent) => {
@@ -246,31 +247,33 @@ function watchProjectFiles(folder, api) {
                             script.code = newContent;
                             api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
                         });
-                        console.log('---updating script---');
+                        logger_1.logger.log('---updating script---');
+                        logger_1.logger.putLine('repl (loading)$ ');
                         return p;
                     }
                     else {
-                        console.log(`script with name ${filename} wasn't registered`);
+                        logger_1.logger.log(`script with name ${filename} wasn't registered`);
                     }
                     return Promise.resolve(O.none);
                 })
                     .then(done => {
                     if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
-                        console.log('Script updated: ' + file);
+                        logger_1.logger.log('Script updated: ' + filename);
+                        logger_1.logger.putLine('repl (ready)$ ');
                     }
                     else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
-                        console.log('Updating script error: ' + JSON.stringify(done.value));
+                        logger_1.logger.log('Updating script error: ' + JSON.stringify(done.value));
                     }
                     else {
-                        console.log('Updating script: unknown response', done);
+                        logger_1.logger.log('Updating script: unknown response', done);
                     }
                 })
                     .catch(e => {
-                    console.log('Updating script error: ' + e);
+                    logger_1.logger.log('Updating script error: ' + e);
                 });
             }
             else {
-                console.log('Couldt find file with name', filename);
+                logger_1.logger.log('Couldt find file with name', filename);
             }
         }
     });
@@ -278,11 +281,11 @@ function watchProjectFiles(folder, api) {
 }
 function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
     console.clear();
-    console.log('Interactive Mode');
-    (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(console.log('run xsrfToken ' + v))));
-    (0, function_1.pipe)(commandNumber, O.chain(v => O.some(console.log('run commandNumber ' + v))));
-    console.log(`Watching for file changes on ${outDir}`);
-    process.stdout.write('repl: ');
+    logger_1.logger.log('Interactive Mode');
+    (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + v))));
+    (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + v))));
+    logger_1.logger.log(`Watching for file changes on ${outDir}`);
+    logger_1.logger.putLine('repl (ready)$ ');
 }
 var InteractiveModeCommands;
 (function (InteractiveModeCommands) {
@@ -340,7 +343,7 @@ async function handleInteractiveApplicationMode(options) {
                     watcherSubscription.unsubscribe();
                     await pageAPI.close();
                     node_process_1.stdin.end();
-                    console.log('browser closed');
+                    logger_1.logger.log('browser closed');
                     process.exit(0);
                 },
             };
@@ -358,32 +361,32 @@ async function handleInteractiveApplicationMode(options) {
 }
 exports.handleInteractiveApplicationMode = handleInteractiveApplicationMode;
 async function handleInteractiveApplicationModeTest(options) {
-    console.log('interactive');
+    logger_1.logger.log('interactive');
     function run(pageAPI) {
         return new Promise(async (resolve, reject) => {
             let xsrfToken = await pageAPI.getXSRFToken();
             let commandNumber = await pageAPI.getCommandNumberFromApp();
-            (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(console.log('run xsrfToken ' + v))));
-            (0, function_1.pipe)(commandNumber, O.chain(v => O.some(console.log('run commandNumber ' + v))));
+            (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + v))));
+            (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + v))));
             const key = 'rDkAi7g84bbMjZopfFKpim3S3MZ60MkF';
             const code = '';
             const newContent = '123';
             try {
                 const r = await (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, key, c, code, newContent)))));
                 // { response: [ { changeScriptCommand: [Object] } ] }
-                console.log('sending done', O.isSome(r) ? r.value : O.none);
+                logger_1.logger.log('sending done', O.isSome(r) ? r.value : O.none);
                 if (O.isSome(r) && (0, appmaker_network_actions_1.isRequestResponse)(r.value)) {
-                    console.log('sucesfull done');
+                    logger_1.logger.log('sucesfull done');
                     commandNumber = O.some(getCommandNumberResponse(r.value));
                 }
                 const code1 = newContent;
                 const newContent1 = '31';
                 const p = await (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, key, c, code1, newContent1)))));
                 // { response: [ { changeScriptCommand: [Object] } ] }
-                console.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
+                logger_1.logger.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
             }
             catch (e) {
-                console.log(e);
+                logger_1.logger.log(e);
             }
             resolve(null);
         });

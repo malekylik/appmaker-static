@@ -1,5 +1,4 @@
 const path = require('path');
-import * as puppeteer from 'puppeteer';
 import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp } from './appmaker/app';
@@ -17,12 +16,13 @@ import { pipe } from 'fp-ts/lib/function';
 import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
 import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-network-actions';
+import { parseFilePath } from './functional/io/filesystem-io';
+import { logger } from './logger';
 
 const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
-
 
 function getCommandNumberResponse(response: RequestResponse): string {
   return response
@@ -33,27 +33,27 @@ function getCommandNumberResponse(response: RequestResponse): string {
 }
 
 export async function postOfflineZipActionsHandler(pathToProject: string, outDir: string) {
-  console.log('post actions');
+  logger.log('post actions');
 
   process.chdir(pathToProject);
-  console.log('zip to', `${outDir}/app.zip`);
+  logger.log('zip to', `${outDir}/app.zip`);
   await exec(`zip -r "${outDir}/app.zip" *`);
 
-  console.log('remove', pathToProject);
+  logger.log('remove', pathToProject);
   await rm(pathToProject, { recursive: true });
 }
 
 export async function postRemoteZipActionsHandler(pathToZip: string, pathToProject: string, outDir: string) {
-  console.log('post actions');
+  logger.log('post actions');
 
   process.chdir(pathToProject);
-  console.log('zip to', `${outDir}/app.zip`);
+  logger.log('zip to', `${outDir}/app.zip`);
   await exec(`zip -r "${outDir}/app.zip" *`);
 
-  console.log('remove', pathToZip);
+  logger.log('remove', pathToZip);
   await rm(pathToZip);
 
-  console.log('remove', pathToProject);
+  logger.log('remove', pathToProject);
   await rm(pathToProject, { recursive: true });
 
   process.chdir(process.env.PWD || '');
@@ -125,12 +125,12 @@ async function validateUnzipProject(passedPath: string, outDir: string): Promise
     printTSCheckDiagnostics(allDiagnostics);
 
     // if (allDiagnostics.length) {
-    //   console.log('TS check doesnt pass. Skip the rest');
+    //   logger.log('TS check doesnt pass. Skip the rest');
 
     //   return { code: 1 };
     // }
   } else {
-    console.log('No file to check for types. TS check skip')
+    logger.log('No file to check for types. TS check skip')
   }
 
   const linterConfig = app.getAppValidator().getLintConfig();
@@ -152,13 +152,13 @@ async function unzipProject(passedPath: string): Promise<string> {
   let pathToProject = passedPath;
 
   pathToProject = passedPath.replace('.zip', '') + '_temp_' + `${new Date().getMonth()}:${new Date().getDate()}:${new Date().getFullYear()}_${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()}`;
-  console.log('unzip to', pathToProject);
+  logger.log('unzip to', pathToProject);
   try {
     await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
     return pathToProject;
   } catch (e) {
-    console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-    console.log(e);
+    logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+    logger.log(e);
     process.exit(1);
   }
 }
@@ -180,14 +180,14 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   try {
     pathStat = await stat(options.project);
   } catch {
-    console.log(`Couldn't find path: ${options.project}`);
+    logger.log(`Couldn't find path: ${options.project}`);
     process.exit(1);
   }
 
   const isZip = path.extname(options.project) === '.zip';
 
   if (!pathStat.isDirectory() && !isZip) {
-    console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+    logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
     process.exit(1);
   }
 
@@ -256,9 +256,9 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
   if (command === InteractiveModeCommands.close) {
     await api.close()
   } else if (command === InteractiveModeCommands.printWorkingDirectory) {
-    console.log(api.getOptions().outDir);
+    logger.log(api.getOptions().outDir);
   } else if (command === InteractiveModeCommands.printCommandNumber) {
-    console.log(api.getCommandNumber());
+    logger.log(api.getCommandNumber());
   } else if (command === InteractiveModeCommands.listFiles) {
 
   } else if (command === InteractiveModeCommands.export) {
@@ -284,13 +284,12 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
     api.watch();
 
     initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
-    // console.log(JSON.stringify(commangFromServer));
   } else if (command === InteractiveModeCommands.screenshot) {
 
   } else if (command === InteractiveModeCommands.update) {
-    console.log('update');
+    logger.log('update');
   } else {
-    console.log('unknown command', command);
+    logger.log('unknown command', command);
   }
 }
 
@@ -316,11 +315,11 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
       commangFromServerPr = null;
 
       if (_commandNumber !== null && typeof _commandNumber === 'object' && 'response' in (_commandNumber) && (_commandNumber as any).response) {
-        console.log('Your application is out-of-day, please reload');
-        console.log('res', _commandNumber);
+        logger.log('Your application is out-of-day, please reload');
+        logger.log('res', _commandNumber);
         }
     } catch (e) {
-      console.log('getFuncToSyncWorkspace error:', e);
+      logger.log('getFuncToSyncWorkspace error:', e);
     }
   }
 }
@@ -337,9 +336,9 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
       fsWait = setTimeout(() => {
         fsWait = false;
       }, 1000);
-      console.log(`${filename} file Changed`);
+      logger.log(`${filename} file Changed`);
 
-      const file = api.getGeneratedFiles().find(f => f.split('/')[f.split('/').length - 1] === filename);
+      const file = api.getGeneratedFiles().find(f => parseFilePath(f).fullName === filename);
 
       if (file) {
         readFile(file, { encoding: 'utf-8' })
@@ -372,29 +371,31 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                 ));
               });
 
-              console.log('---updating script---');
+              logger.log('---updating script---');
+              logger.putLine('repl (loading)$ ');
 
               return p;
             } else {
-              console.log(`script with name ${filename} wasn't registered`);
+              logger.log(`script with name ${filename} wasn't registered`);
             }
 
             return Promise.resolve(O.none);
           })
           .then(done => {
             if (O.isSome(done) && isRequestResponse(done.value)) {
-              console.log('Script updated: ' + file);
+              logger.log('Script updated: ' + filename);
+              logger.putLine('repl (ready)$ ');
             } else if (O.isSome(done) && isRequestError(done.value)) {
-              console.log('Updating script error: ' + JSON.stringify(done.value));
+              logger.log('Updating script error: ' + JSON.stringify(done.value));
             } else {
-              console.log('Updating script: unknown response', done);
+              logger.log('Updating script: unknown response', done);
             }
           })
           .catch(e => {
-            console.log('Updating script error: ' + e);
+            logger.log('Updating script error: ' + e);
           })
       } else {
-        console.log('Couldt find file with name', filename);
+        logger.log('Couldt find file with name', filename);
       }
     }
   });
@@ -404,20 +405,20 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
 
 function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string) {
   console.clear();
-  console.log('Interactive Mode');
+  logger.log('Interactive Mode');
 
   pipe(
     xsrfToken,
-    O.chain(v => O.some(console.log('run xsrfToken ' + v)))
+    O.chain(v => O.some(logger.log('run xsrfToken ' + v)))
   );
   pipe(
     commandNumber,
-    O.chain(v => O.some(console.log('run commandNumber ' + v)))
+    O.chain(v => O.some(logger.log('run commandNumber ' + v)))
   );
 
-  console.log(`Watching for file changes on ${outDir}`);
+  logger.log(`Watching for file changes on ${outDir}`);
 
-  process.stdout.write('repl: ');
+  logger.putLine('repl (ready)$ ');
 }
 
 enum InteractiveModeCommands {
@@ -489,7 +490,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
           await pageAPI.close();
           stdin.end();
 
-          console.log('browser closed');
+          logger.log('browser closed');
 
           process.exit(0);
         },
@@ -513,7 +514,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
 }
 
 export async function handleInteractiveApplicationModeTest(options: InteractiveMode): Promise<void> {
-  console.log('interactive');
+  logger.log('interactive');
 
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
@@ -522,11 +523,11 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
 
       pipe(
         xsrfToken,
-        O.chain(v => O.some(console.log('run xsrfToken ' + v)))
+        O.chain(v => O.some(logger.log('run xsrfToken ' + v)))
       );
       pipe(
         commandNumber,
-        O.chain(v => O.some(console.log('run commandNumber ' + v)))
+        O.chain(v => O.some(logger.log('run commandNumber ' + v)))
       );
 
       const key = 'rDkAi7g84bbMjZopfFKpim3S3MZ60MkF';
@@ -551,10 +552,10 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
         );
 
         // { response: [ { changeScriptCommand: [Object] } ] }
-        console.log('sending done', O.isSome(r) ? r.value : O.none);
+        logger.log('sending done', O.isSome(r) ? r.value : O.none);
 
         if (O.isSome(r) && isRequestResponse(r.value)) {
-          console.log('sucesfull done');
+          logger.log('sucesfull done');
 
           commandNumber = O.some(getCommandNumberResponse(r.value));
         }
@@ -579,9 +580,9 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
         );
 
         // { response: [ { changeScriptCommand: [Object] } ] }
-        console.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
+        logger.log('sending done', O.isSome(p) ? JSON.stringify(p.value) : O.none);
       } catch (e) {
-        console.log(e);
+        logger.log(e);
       }
 
       resolve(null);
