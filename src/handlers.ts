@@ -19,6 +19,7 @@ import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-n
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
 import { colorImportantMessage, colorPath, colorValue, getReplUserInputLine } from './repl-logger';
+import { ReplJob, replScheduler } from './repl-scheduler';
 
 const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
@@ -336,7 +337,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
       if (fsWait) return;
       fsWait = setTimeout(() => {
         fsWait = false;
-      }, 1000);
+      }, 300);
 
       const file = api.getGeneratedFiles().find(f => parseFilePath(f).fullName === filename);
       const filenameObj = parseFilePath(filename);
@@ -347,33 +348,44 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
             const script = api.getApp().scripts.find(script => script.name === filename.replace('.js', ''));
             
             if (script) {
-              const p = pipe(
-                api.getXsrfToken(),
-                O.match(() => Promise.resolve(O.none), t => pipe(
-                  api.getCommandNumber(),
-                  O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(
-                    t,
-                    api.getOptions().appId,
-                    api.getOptions().credentials.login,
-                    script.key,
-                    c,
-                    script.code || '',
-                    newContent
-                  ))
-                ))
-              );
+              const job: ReplJob = {
+                scriptName: filenameObj.name,
+                run: () => {
+                  logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
 
-              p.then((r) => {
-                script.code = newContent;
+                  return pipe(
+                      api.getXsrfToken(),
+                      O.match(() => Promise.resolve(O.none), t => pipe(
+                        api.getCommandNumber(),
+                        O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(
+                          t,
+                          api.getOptions().appId,
+                          api.getOptions().credentials.login,
+                          script.key,
+                          c,
+                          script.code || '',
+                          newContent
+                        ))
+                      ))
+                    ).then((r) => {
+                      script.code = newContent;
 
-                api.setCommandNumber(pipe(
-                  r,
-                  O.chain(v => isRequestResponse(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())
-                ));
-              });
+                      api.setCommandNumber(pipe(
+                        r,
+                        O.chain(v => isRequestResponse(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())
+                      ));
 
-              logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
-              logger.putLine(getReplUserInputLine({ state: 'loading' }));
+                      return r;
+                    })
+                    ;
+                  }
+              };
+
+              if (replScheduler.getJobsCount() === 0) {
+                logger.putLine(getReplUserInputLine({ state: 'loading' }));
+              }
+
+              const p = replScheduler.schedule(job);
 
               return p;
             } else {
@@ -385,7 +397,10 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
           .then(done => {
             if (O.isSome(done) && isRequestResponse(done.value)) {
               logger.log('Script updated: ' + colorPath(filenameObj.name));
-              logger.putLine(getReplUserInputLine({ state: 'ready' }));
+
+              if (replScheduler.getJobsCount() === 0) {
+                logger.putLine(getReplUserInputLine({ state: 'ready' }));
+              }
             } else if (O.isSome(done) && isRequestError(done.value)) {
               logger.log('Updating script error: ' + JSON.stringify(done.value));
             } else {

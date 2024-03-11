@@ -19,6 +19,7 @@ const appmaker_network_actions_1 = require("./appmaker-network-actions");
 const filesystem_io_1 = require("./functional/io/filesystem-io");
 const logger_1 = require("./logger");
 const repl_logger_1 = require("./repl-logger");
+const repl_scheduler_1 = require("./repl-scheduler");
 const rm = (0, node_util_1.promisify)(node_fs_1.rm);
 const readFile = (0, node_util_1.promisify)(node_fs_1.readFile);
 const exec = (0, node_util_1.promisify)(require('node:child_process').exec);
@@ -235,7 +236,7 @@ function watchProjectFiles(folder, api) {
                 return;
             fsWait = setTimeout(() => {
                 fsWait = false;
-            }, 1000);
+            }, 300);
             const file = api.getGeneratedFiles().find(f => (0, filesystem_io_1.parseFilePath)(f).fullName === filename);
             const filenameObj = (0, filesystem_io_1.parseFilePath)(filename);
             if (file) {
@@ -243,13 +244,21 @@ function watchProjectFiles(folder, api) {
                     .then((newContent) => {
                     const script = api.getApp().scripts.find(script => script.name === filename.replace('.js', ''));
                     if (script) {
-                        const p = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(t, api.getOptions().appId, api.getOptions().credentials.login, script.key, c, script.code || '', newContent)))));
-                        p.then((r) => {
-                            script.code = newContent;
-                            api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
-                        });
-                        logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
-                        logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'loading' }));
+                        const job = {
+                            scriptName: filenameObj.name,
+                            run: () => {
+                                logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
+                                return (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(t, api.getOptions().appId, api.getOptions().credentials.login, script.key, c, script.code || '', newContent))))).then((r) => {
+                                    script.code = newContent;
+                                    api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
+                                    return r;
+                                });
+                            }
+                        };
+                        if (repl_scheduler_1.replScheduler.getJobsCount() === 0) {
+                            logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'loading' }));
+                        }
+                        const p = repl_scheduler_1.replScheduler.schedule(job);
                         return p;
                     }
                     else {
@@ -260,7 +269,9 @@ function watchProjectFiles(folder, api) {
                     .then(done => {
                     if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
                         logger_1.logger.log('Script updated: ' + (0, repl_logger_1.colorPath)(filenameObj.name));
-                        logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+                        if (repl_scheduler_1.replScheduler.getJobsCount() === 0) {
+                            logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+                        }
                     }
                     else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
                         logger_1.logger.log('Updating script error: ' + JSON.stringify(done.value));
