@@ -15,7 +15,10 @@ import { pipe } from 'fp-ts/lib/function';
 
 import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
-import { RequestResponse, isRequestError, isRequestResponse } from './appmaker-network-actions';
+import {
+  RequestResponse, isRequestError, isRequestResponse,
+  isRequestChangeScriptCommand, isRequestAddComponentInfoCommand, tryToGetCommand
+} from './appmaker-network-actions';
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
 import { colorImportantMessage, colorPath, colorValue, getReplUserInputLine } from './repl-logger';
@@ -29,9 +32,32 @@ const stat = promisify(oldStat);
 function getCommandNumberResponse(response: RequestResponse): string {
   return response
     .response
-    .slice()
-    .sort((a, b) => Number(b.changeScriptCommand.sequenceNumber) - Number(a.changeScriptCommand.sequenceNumber))
-    [0]?.changeScriptCommand.sequenceNumber || '-1';
+    .map((response) => {
+      if (isRequestChangeScriptCommand(response)) {
+        return response.changeScriptCommand.sequenceNumber;
+      }
+
+      if (isRequestAddComponentInfoCommand(response)) {
+        return response.addComponentInfoCommand.sequenceNumber;
+      }
+
+      logger.log('Unknown response');
+      logger.log('Try to get sequence number from response');
+
+      const command = tryToGetCommand(response);
+
+      if (O.isNone(command)) {
+        logger.log('Cannot get sequence number from command');
+        logger.log('Reload appmaker-static');
+
+        return '-1';
+      }
+
+      logger.log('Sequence number successfully obtained');
+      return command.value.sequenceNumber;
+    })
+    .sort((a, b) => Number(b) - Number(a))
+    [0] || '-1'; // TODO: check why it fails when make changes in AppMaker (not related to script) and then export it
 }
 
 export async function postOfflineZipActionsHandler(pathToProject: string, outDir: string) {
@@ -237,6 +263,7 @@ type HandleUserInputAPI = {
   getXsrfToken(): O.Option<string>;
 
   watch(): void;
+  stopWatch(): void;
 
   close(): Promise<void>;
 };
@@ -264,8 +291,13 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
   } else if (command === InteractiveModeCommands.listFiles) {
 
   } else if (command === InteractiveModeCommands.export) {
-    const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
+    logger.log('exporting...');
 
+    api.stopWatch();
+
+    logger.silent(true);
+
+    const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
     api.setGeneratedFiles(generatedFiles);
     api.setApp(app);
 
@@ -277,6 +309,7 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
       ))
     );
 
+    logger.silent(false);
 
     api.setCommandNumber(pipe(
       commangFromServer,
@@ -420,7 +453,6 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
 }
 
 function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string) {
-  console.clear();
   logger.log(colorImportantMessage('Interactive Mode'));
 
   pipe(
@@ -498,6 +530,11 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
           watcherSubscription = watchProjectFiles(options.outDir, userAPI);
         },
 
+        stopWatch() {
+          watcherSubscription.unsubscribe();
+          watcherSubscription = { unsubscribe: () => {} };
+        },
+
         async close() {
           stdin.removeListener('data', handler);
           clearInterval(syncInterval);
@@ -522,6 +559,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
 
       syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000) as unknown as number;
 
+      console.clear();
       initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
     });
   }
@@ -570,7 +608,7 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
         // { response: [ { changeScriptCommand: [Object] } ] }
         logger.log('sending done', O.isSome(r) ? r.value : O.none);
 
-        if (O.isSome(r) && isRequestResponse(r.value)) {
+        if (O.isSome(r) && isRequestResponse(r.value) && isRequestChangeScriptCommand(r.value)) {
           logger.log('sucesfull done');
 
           commandNumber = O.some(getCommandNumberResponse(r.value));

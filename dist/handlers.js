@@ -27,8 +27,25 @@ const stat = (0, node_util_1.promisify)(node_fs_1.stat);
 function getCommandNumberResponse(response) {
     return response
         .response
-        .slice()
-        .sort((a, b) => Number(b.changeScriptCommand.sequenceNumber) - Number(a.changeScriptCommand.sequenceNumber))[0]?.changeScriptCommand.sequenceNumber || '-1';
+        .map((response) => {
+        if ((0, appmaker_network_actions_1.isRequestChangeScriptCommand)(response)) {
+            return response.changeScriptCommand.sequenceNumber;
+        }
+        if ((0, appmaker_network_actions_1.isRequestAddComponentInfoCommand)(response)) {
+            return response.addComponentInfoCommand.sequenceNumber;
+        }
+        logger_1.logger.log('Unknown response');
+        logger_1.logger.log('Try to get sequence number from response');
+        const command = (0, appmaker_network_actions_1.tryToGetCommand)(response);
+        if (O.isNone(command)) {
+            logger_1.logger.log('Cannot get sequence number from command');
+            logger_1.logger.log('Reload appmaker-static');
+            return '-1';
+        }
+        logger_1.logger.log('Sequence number successfully obtained');
+        return command.value.sequenceNumber;
+    })
+        .sort((a, b) => Number(b) - Number(a))[0] || '-1'; // TODO: check why it fails when make changes in AppMaker (not related to script) and then export it
 }
 async function postOfflineZipActionsHandler(pathToProject, outDir) {
     logger_1.logger.log('post actions');
@@ -189,10 +206,14 @@ async function handleUserInput(api, data) {
     else if (command === InteractiveModeCommands.listFiles) {
     }
     else if (command === InteractiveModeCommands.export) {
+        logger_1.logger.log('exporting...');
+        api.stopWatch();
+        logger_1.logger.silent(true);
         const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
         api.setGeneratedFiles(generatedFiles);
         api.setApp(app);
         const commangFromServer = await (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
+        logger_1.logger.silent(false);
         api.setCommandNumber((0, function_1.pipe)(commangFromServer, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
         api.watch();
         initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
@@ -292,7 +313,6 @@ function watchProjectFiles(folder, api) {
     return { unsubscribe: () => { ac.abort(); } };
 }
 function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
-    console.clear();
     logger_1.logger.log((0, repl_logger_1.colorImportantMessage)('Interactive Mode'));
     (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + (0, repl_logger_1.colorValue)(v)))));
     (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + (0, repl_logger_1.colorValue)(v)))));
@@ -349,6 +369,10 @@ async function handleInteractiveApplicationMode(options) {
                     watcherSubscription.unsubscribe();
                     watcherSubscription = watchProjectFiles(options.outDir, userAPI);
                 },
+                stopWatch() {
+                    watcherSubscription.unsubscribe();
+                    watcherSubscription = { unsubscribe: () => { } };
+                },
                 async close() {
                     node_process_1.stdin.removeListener('data', handler);
                     clearInterval(syncInterval);
@@ -366,6 +390,7 @@ async function handleInteractiveApplicationMode(options) {
             ;
             node_process_1.stdin.on('data', handler);
             syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000);
+            console.clear();
             initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
         });
     }
@@ -387,7 +412,7 @@ async function handleInteractiveApplicationModeTest(options) {
                 const r = await (0, function_1.pipe)(xsrfToken, O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(commandNumber, O.match(() => Promise.resolve(O.none), c => pageAPI.changeScriptFile(t, options.appId, options.credentials.login, key, c, code, newContent)))));
                 // { response: [ { changeScriptCommand: [Object] } ] }
                 logger_1.logger.log('sending done', O.isSome(r) ? r.value : O.none);
-                if (O.isSome(r) && (0, appmaker_network_actions_1.isRequestResponse)(r.value)) {
+                if (O.isSome(r) && (0, appmaker_network_actions_1.isRequestResponse)(r.value) && (0, appmaker_network_actions_1.isRequestChangeScriptCommand)(r.value)) {
                     logger_1.logger.log('sucesfull done');
                     commandNumber = O.some(getCommandNumberResponse(r.value));
                 }

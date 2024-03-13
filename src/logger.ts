@@ -3,6 +3,7 @@ class Logger {
   private logQueue: unknown[] = [];
   private putQueue: unknown[] = [];
   private lastEndedWithPutLine = false;
+  private _silent = false;
 
   log(message: unknown, ...messages: unknown[]): void {
     if (this.queuePr === null) {
@@ -22,13 +23,24 @@ class Logger {
     this.putQueue = this.putQueue.concat([message]).concat(messages);
   }
 
-  private emptyQueue() {
-    if (this.lastEndedWithPutLine) {
-      console.log('');
+  silent(flag: boolean) {
+    if (this.queuePr) {
+      this.queuePr
+        .then(() => { this._silent = flag; });
+    } else {
+      this._silent = flag;
     }
+  }
 
-    this.logQueue.forEach(message => { console.log(message); });
-    this.putQueue.forEach(message => { process.stdout.write(String(message)); });
+  private emptyQueue() {
+    if (!this._silent) {
+      if (this.lastEndedWithPutLine) {
+        console.log('');
+      }
+  
+      this.logQueue.forEach(message => { console.log(message); });
+      this.putQueue.forEach(message => { process.stdout.write(String(message)); });
+    }
 
     this.lastEndedWithPutLine = this.putQueue.length > 0;
 

@@ -7,6 +7,7 @@ class Logger {
         this.logQueue = [];
         this.putQueue = [];
         this.lastEndedWithPutLine = false;
+        this._silent = false;
     }
     log(message, ...messages) {
         if (this.queuePr === null) {
@@ -22,12 +23,23 @@ class Logger {
         }
         this.putQueue = this.putQueue.concat([message]).concat(messages);
     }
-    emptyQueue() {
-        if (this.lastEndedWithPutLine) {
-            console.log('');
+    silent(flag) {
+        if (this.queuePr) {
+            this.queuePr
+                .then(() => { this._silent = flag; });
         }
-        this.logQueue.forEach(message => { console.log(message); });
-        this.putQueue.forEach(message => { process.stdout.write(String(message)); });
+        else {
+            this._silent = flag;
+        }
+    }
+    emptyQueue() {
+        if (!this._silent) {
+            if (this.lastEndedWithPutLine) {
+                console.log('');
+            }
+            this.logQueue.forEach(message => { console.log(message); });
+            this.putQueue.forEach(message => { process.stdout.write(String(message)); });
+        }
         this.lastEndedWithPutLine = this.putQueue.length > 0;
         this.logQueue = [];
         this.putQueue = [];

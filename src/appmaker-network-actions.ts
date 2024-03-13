@@ -1,5 +1,8 @@
 import * as puppeteer from 'puppeteer';
 
+import { pipe } from 'fp-ts/lib/function';
+import * as O from 'fp-ts/lib/Option';
+
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 
@@ -121,18 +124,61 @@ enum CommnadId {
 export const isRequestResponse = (response: unknown): response is RequestResponse =>
   response !== null && typeof response === 'object' && 'response' in response && Array.isArray(response.response);
 
+export const isCommandLikeResponse = (response: unknown): response is CommnadLikeResponse =>
+  response !== null && typeof response === 'object' && 'sequenceNumber' in response;
+
+export const isRequestChangeScriptCommand = (response: unknown): response is ChangeScriptCommand =>
+  response !== null && typeof response === 'object' && 'changeScriptCommand' in response;
+export const isRequestAddComponentInfoCommand = (response: unknown): response is AddComponentInfoCommand =>
+  response !== null && typeof response === 'object' && 'addComponentInfoCommand' in response;
+
+
 export const isRequestError = (response: unknown): response is RequestError =>
   response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
 
-export type RequestResponse = { response: Array<{ changeScriptCommand: {
-  key: { applicationKey: string; localKey: string; };
-  scriptChange: {
-    lengthAfter: number;
-    lengthBefore: number;
-    modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
-  };
+export const tryToGetCommand = (response: Record<string, unknown>): O.Option<CommnadLikeResponse> => {
+  const keys = Object.keys(response);
+  const findCommandKey = keys
+    .map(key => key.match(/\w*Command$/) || [])
+    .map(m => m[0])
+    .filter(key => key !== undefined);
+
+  if (findCommandKey.length > 1) {
+    return O.none;
+  }
+
+  return pipe(
+    findCommandKey[0],
+    key => response[key || ''],
+    command => command && isCommandLikeResponse(command) ? O.some(command) : O.none
+  );
+}
+
+export type CommnadLikeResponse = {
   sequenceNumber: string;
-} }> };
+};
+
+export type AddComponentInfoCommand = {
+  addComponentInfoCommand: {
+    //TODO: fill
+
+    sequenceNumber: string;
+  }
+};
+
+export type ChangeScriptCommand = {
+  changeScriptCommand: {
+    key: { applicationKey: string; localKey: string; };
+    scriptChange: {
+      lengthAfter: number;
+      lengthBefore: number;
+      modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
+    };
+    sequenceNumber: string;
+  }
+};
+
+export type RequestResponse = { response: Array<AddComponentInfoCommand | ChangeScriptCommand> };
 export type RequestError = { type: string; message: string; unknownException?: { exceptionTypeName: 'UNKNOWN_EXCEPTION' } };
 
 export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, appKey: string, currentCommandNumber: string) {
