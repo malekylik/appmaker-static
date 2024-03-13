@@ -1,26 +1,26 @@
 class Logger {
   private queuePr: Promise<void> | null = null;
-  private logQueue: unknown[] = [];
+  private logQueue: unknown[][] = [];
   private putQueue: unknown[] = [];
   private lastEndedWithPutLine = false;
   private _silent = false;
 
-  log(message: unknown, ...messages: unknown[]): void {
+  log(...messages: unknown[]): void {
     if (this.queuePr === null) {
       this.queuePr = Promise.resolve()
         .then(() => this.emptyQueue());
     }
 
-    this.logQueue = this.logQueue.concat([message]).concat(messages);
+    this.logQueue = this.logQueue.concat([messages]);
   }
 
-  putLine(message: unknown, ...messages: unknown[]): void {
+  putLine(message: unknown): void {
     if (this.queuePr === null) {
       this.queuePr = Promise.resolve()
         .then(() => this.emptyQueue());
     }
 
-    this.putQueue = this.putQueue.concat([message]).concat(messages);
+    this.putQueue = this.putQueue.concat([message]);
   }
 
   silent(flag: boolean) {
@@ -38,7 +38,7 @@ class Logger {
         console.log('');
       }
   
-      this.logQueue.forEach(message => { console.log(message); });
+      this.logQueue.forEach(messages => { console.log.apply(null, messages); });
       this.putQueue.forEach(message => { process.stdout.write(String(message)); });
     }
 

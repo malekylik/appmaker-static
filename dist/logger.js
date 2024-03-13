@@ -9,19 +9,19 @@ class Logger {
         this.lastEndedWithPutLine = false;
         this._silent = false;
     }
-    log(message, ...messages) {
+    log(...messages) {
         if (this.queuePr === null) {
             this.queuePr = Promise.resolve()
                 .then(() => this.emptyQueue());
         }
-        this.logQueue = this.logQueue.concat([message]).concat(messages);
+        this.logQueue = this.logQueue.concat([messages]);
     }
-    putLine(message, ...messages) {
+    putLine(message) {
         if (this.queuePr === null) {
             this.queuePr = Promise.resolve()
                 .then(() => this.emptyQueue());
         }
-        this.putQueue = this.putQueue.concat([message]).concat(messages);
+        this.putQueue = this.putQueue.concat([message]);
     }
     silent(flag) {
         if (this.queuePr) {
@@ -37,7 +37,7 @@ class Logger {
             if (this.lastEndedWithPutLine) {
                 console.log('');
             }
-            this.logQueue.forEach(message => { console.log(message); });
+            this.logQueue.forEach(messages => { console.log.apply(null, messages); });
             this.putQueue.forEach(message => { process.stdout.write(String(message)); });
         }
         this.lastEndedWithPutLine = this.putQueue.length > 0;
