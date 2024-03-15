@@ -136,23 +136,22 @@ export const isRequestAddComponentInfoCommand = (response: unknown): response is
 export const isRequestError = (response: unknown): response is RequestError =>
   response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
 
-export const tryToGetCommand = (response: Record<string, unknown>): O.Option<CommnadLikeResponse> => {
-  const keys = Object.keys(response);
-  const findCommandKey = keys
+export const tryToGetCommandName = (response: Record<string, unknown>): O.Option<string> =>
+  pipe(
+    Object.keys(response),
+    keys => keys
     .map(key => key.match(/\w*Command$/) || [])
     .map(m => m[0])
-    .filter(key => key !== undefined);
-
-  if (findCommandKey.length > 1) {
-    return O.none;
-  }
-
-  return pipe(
-    findCommandKey[0],
-    key => response[key || ''],
-    command => command && isCommandLikeResponse(command) ? O.some(command) : O.none
+    .filter(key => key !== undefined),
+    findCommandKey => findCommandKey.length > 1 ? O.none : O.some(findCommandKey[0]!)
   );
-}
+
+export const tryToGetCommand = (response: Record<string, unknown>): O.Option<CommnadLikeResponse> =>
+  pipe(
+    tryToGetCommandName(response),
+    O.chain(key => response[key || ''] ? O.some(response[key || '']) : O.none),
+    O.chain(command => command && isCommandLikeResponse(command) ? O.some(command) : O.none)
+  );
 
 export type CommnadLikeResponse = {
   sequenceNumber: string;

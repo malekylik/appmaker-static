@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.tryToGetCommand = exports.isRequestError = exports.isRequestAddComponentInfoCommand = exports.isRequestChangeScriptCommand = exports.isCommandLikeResponse = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.tryToGetCommand = exports.tryToGetCommandName = exports.isRequestError = exports.isRequestAddComponentInfoCommand = exports.isRequestChangeScriptCommand = exports.isCommandLikeResponse = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
 const function_1 = require("fp-ts/lib/function");
 const O = require("fp-ts/lib/Option");
 const { writeFile: oldWriteFile } = require('fs');
@@ -112,17 +112,12 @@ const isRequestAddComponentInfoCommand = (response) => response !== null && type
 exports.isRequestAddComponentInfoCommand = isRequestAddComponentInfoCommand;
 const isRequestError = (response) => response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
 exports.isRequestError = isRequestError;
-const tryToGetCommand = (response) => {
-    const keys = Object.keys(response);
-    const findCommandKey = keys
-        .map(key => key.match(/\w*Command$/) || [])
-        .map(m => m[0])
-        .filter(key => key !== undefined);
-    if (findCommandKey.length > 1) {
-        return O.none;
-    }
-    return (0, function_1.pipe)(findCommandKey[0], key => response[key || ''], command => command && (0, exports.isCommandLikeResponse)(command) ? O.some(command) : O.none);
-};
+const tryToGetCommandName = (response) => (0, function_1.pipe)(Object.keys(response), keys => keys
+    .map(key => key.match(/\w*Command$/) || [])
+    .map(m => m[0])
+    .filter(key => key !== undefined), findCommandKey => findCommandKey.length > 1 ? O.none : O.some(findCommandKey[0]));
+exports.tryToGetCommandName = tryToGetCommandName;
+const tryToGetCommand = (response) => (0, function_1.pipe)((0, exports.tryToGetCommandName)(response), O.chain(key => response[key || ''] ? O.some(response[key || '']) : O.none), O.chain(command => command && (0, exports.isCommandLikeResponse)(command) ? O.some(command) : O.none));
 exports.tryToGetCommand = tryToGetCommand;
 async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
     const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {

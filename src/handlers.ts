@@ -17,7 +17,7 @@ import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
 import {
   RequestResponse, isRequestError, isRequestResponse,
-  isRequestChangeScriptCommand, isRequestAddComponentInfoCommand, tryToGetCommand
+  isRequestChangeScriptCommand, isRequestAddComponentInfoCommand, tryToGetCommand, RequestError, tryToGetCommandName, CommnadLikeResponse
 } from './appmaker-network-actions';
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
@@ -329,7 +329,7 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
 }
 
 function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
-  let commangFromServerPr: Promise<unknown> | null = null;
+  let commangFromServerPr: Promise<O.Option<RequestResponse | RequestError>> | null = null;
 
   return async function checkForCommandNumber() {
     try {
@@ -337,6 +337,7 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
         return;
       }
 
+      // TODO: drop this request when close method called
       commangFromServerPr = pipe(
         api.getXsrfToken(),
         O.match(() => Promise.resolve(O.none), t => pipe(
@@ -349,10 +350,31 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
 
       commangFromServerPr = null;
 
-      if (_commandNumber !== null && typeof _commandNumber === 'object' && 'response' in (_commandNumber) && (_commandNumber as any).response) {
-        logger.log('Your application is out-of-day, please reload');
-        logger.log('res', _commandNumber);
-        }
+      if (O.isSome(_commandNumber) && isRequestResponse(_commandNumber.value)) {
+        const res = pipe(
+          _commandNumber.value,
+          response => response.response.map(commandResponse => {
+            const commandName = tryToGetCommandName(commandResponse)
+            const command = tryToGetCommand(commandResponse);
+
+            return ([
+              O.isSome(commandName) ? commandName.value : '',
+              O.isSome(command) ? command.value.sequenceNumber : null
+            ]);
+          }),
+          commands => commands.filter((command): command is [string, string] => command[1] !== null),
+          commnads => commnads.sort((c1, c2) => Number(c1[1]) - Number(c2[1]))
+        );
+
+        logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
+        logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+      } else if (O.isSome(_commandNumber) && isRequestError(_commandNumber.value)) {
+        logger.log('Error retriving sequence number from the server');
+      } else if (O.isSome(_commandNumber) && Object.keys(_commandNumber.value).length === 0) {
+        // empty response
+      } else {
+        logger.log('Unknown repsonse during retriving sequence');
+      }
     } catch (e) {
       logger.log('getFuncToSyncWorkspace error:', e);
     }
@@ -386,6 +408,10 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                 run: () => {
                   logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
 
+                  if (newContent === '') {
+                    logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`)
+                  }
+
                   return pipe(
                       api.getXsrfToken(),
                       O.match(() => Promise.resolve(O.none), t => pipe(
@@ -401,6 +427,10 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                         ))
                       ))
                     ).then((r) => {
+                      if (newContent === '') {
+                        logger.log(`Update: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`)
+                      }
+
                       script.code = newContent;
 
                       api.setCommandNumber(pipe(
@@ -556,6 +586,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       };
 
       stdin.on('data', handler);
+
 
       syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000) as unknown as number;
 

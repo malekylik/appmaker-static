@@ -234,12 +234,30 @@ function getFuncToSyncWorkspace(api) {
             if (commangFromServerPr !== null) {
                 return;
             }
+            // TODO: drop this request when close method called
             commangFromServerPr = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
             const _commandNumber = await commangFromServerPr;
             commangFromServerPr = null;
-            if (_commandNumber !== null && typeof _commandNumber === 'object' && 'response' in (_commandNumber) && _commandNumber.response) {
-                logger_1.logger.log('Your application is out-of-day, please reload');
-                logger_1.logger.log('res', _commandNumber);
+            if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestResponse)(_commandNumber.value)) {
+                const res = (0, function_1.pipe)(_commandNumber.value, response => response.response.map(commandResponse => {
+                    const commandName = (0, appmaker_network_actions_1.tryToGetCommandName)(commandResponse);
+                    const command = (0, appmaker_network_actions_1.tryToGetCommand)(commandResponse);
+                    return ([
+                        O.isSome(commandName) ? commandName.value : '',
+                        O.isSome(command) ? command.value.sequenceNumber : null
+                    ]);
+                }), commands => commands.filter((command) => command[1] !== null), commnads => commnads.sort((c1, c2) => Number(c1[1]) - Number(c2[1])));
+                logger_1.logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
+                logger_1.logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+            }
+            else if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestError)(_commandNumber.value)) {
+                logger_1.logger.log('Error retriving sequence number from the server');
+            }
+            else if (O.isSome(_commandNumber) && Object.keys(_commandNumber.value).length === 0) {
+                // empty response
+            }
+            else {
+                logger_1.logger.log('Unknown repsonse during retriving sequence');
             }
         }
         catch (e) {
@@ -269,7 +287,13 @@ function watchProjectFiles(folder, api) {
                             scriptName: filenameObj.name,
                             run: () => {
                                 logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
+                                if (newContent === '') {
+                                    logger_1.logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`);
+                                }
                                 return (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().changeScriptFile(t, api.getOptions().appId, api.getOptions().credentials.login, script.key, c, script.code || '', newContent))))).then((r) => {
+                                    if (newContent === '') {
+                                        logger_1.logger.log(`Update: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`);
+                                    }
                                     script.code = newContent;
                                     api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
                                     return r;
