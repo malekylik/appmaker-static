@@ -165,13 +165,17 @@ export type AddComponentInfoCommand = {
   }
 };
 
+export type ScriptModifiaction = {
+  length: number; text: string; type: 'DELETE' | 'INSERT'
+} | { length: number; type: 'SKIP' };
+
 export type ChangeScriptCommand = {
   changeScriptCommand: {
     key: { applicationKey: string; localKey: string; };
     scriptChange: {
       lengthAfter: number;
       lengthBefore: number;
-      modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
+      modifications: Array<ScriptModifiaction>;
     };
     sequenceNumber: string;
   }

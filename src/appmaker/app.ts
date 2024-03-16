@@ -26,17 +26,11 @@ export interface Script {
   exports: Array<string>;
 }
 
-type NormilizedPanel = {
-  class: 'Panel';
-  key: string;
-  isCustomWidget: false;
-}
 
-type NormilizedCustomPanel = {
-  class: 'Panel';
-  key: string;
-  isCustomWidget: false;
-  customProperties: Array<{ key: string; name: string; type: AppMakerVarType; }>;
+export function updateScript(script: Script, newCode: string): void {
+  script.code = newCode;
+  // TODO: should be synced with the new code
+  // script.exports 
 }
 
 // TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)

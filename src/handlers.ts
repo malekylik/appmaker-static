@@ -1,7 +1,7 @@
 const path = require('path');
 import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
-import { App, initAppMakerApp } from './appmaker/app';
+import { App, initAppMakerApp, updateScript } from './appmaker/app';
 import { PageAPI, callAppMakerApp, runInApplicationPageContext } from './appmaker-network';
 import { generateJSProjectForAppMaker, getModelsNames, getPathToViews, getScriptsNames, getViewsNames, readAppMakerModels, readAppMakerScripts, readAppMakerViews, readLinterConfig, readTSConfig, writeValidatedScriptsToAppMakerXML } from './io';
 import { readAppMakerViews as readAppMakerViewsF } from './functional/io/appmaker-io';
@@ -9,7 +9,7 @@ import { printEmptyScripts, printLintingReport, printTSCheckDiagnostics } from '
 import { AppValidator } from './appmaker/app-validatior';
 import { stdin } from 'node:process';
 
-import { stat as oldStat, rm as oldRm, readFile as oldReadFile, watch } from 'node:fs';
+import { stat as oldStat, rm as oldRm, readFile as oldReadFile, writeFile as oldWriteFile, watch } from 'node:fs';
 import { promisify } from 'node:util';
 import { pipe } from 'fp-ts/lib/function';
 
@@ -17,7 +17,7 @@ import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
 import {
   RequestResponse, isRequestError, isRequestResponse,
-  isRequestChangeScriptCommand, isRequestAddComponentInfoCommand, tryToGetCommand, RequestError, tryToGetCommandName, CommnadLikeResponse
+  isRequestChangeScriptCommand, isRequestAddComponentInfoCommand, tryToGetCommand, RequestError, tryToGetCommandName, CommnadLikeResponse, ChangeScriptCommand, ScriptModifiaction
 } from './appmaker-network-actions';
 import { parseFilePath } from './functional/io/filesystem-io';
 import { logger } from './logger';
@@ -28,6 +28,7 @@ const rm = promisify(oldRm);
 const readFile = promisify(oldReadFile);
 const exec = promisify(require('node:child_process').exec);
 const stat = promisify(oldStat);
+const writeFile = promisify(oldWriteFile);
 
 function getCommandNumberResponse(response: RequestResponse): string {
   return response
@@ -328,6 +329,60 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
   }
 }
 
+function applyModificationsToScript(source: string, modifications: Array<ScriptModifiaction>): string {
+  let pointer = 0;
+
+  // TODO: chech in the end modicfied str.length is the same as pointer
+  return modifications.reduce((str, modification) => {
+    if (modification.type === 'SKIP') {
+      pointer += modification.length;
+
+      return str;
+    }
+
+    if (modification.type === 'INSERT') {
+      const newStr = str.slice(0, pointer) + modification.text + str.slice(pointer);
+
+      pointer += modification.length;
+
+      return newStr;
+    }
+
+    if (modification.type === 'DELETE') {
+      // TODO; check the deleted potion of the string is the same as modification.text
+      const newStr = str.slice(0, pointer) + str.slice(pointer + modification.length);
+
+      return newStr;
+    }
+
+    return str;
+  }, source);
+}
+
+async function tryToSyncScript(api: HandleUserInputAPI, commands: Array<ChangeScriptCommand>) {
+  const app = api.getApp();
+
+  for (let i = 0; i < commands.length; i++) {
+    const command = commands[i]!;
+
+    const script = app.scripts.find(script => script.key === command.changeScriptCommand.key.localKey);
+
+    if (script) {
+      const changedStr = applyModificationsToScript(script.code || '', command.changeScriptCommand.scriptChange.modifications);
+      updateScript(script, changedStr);
+
+      const pathToProject = api.getOptions().outDir;
+      const pathToFileTSFile = `${pathToProject}/${script.name}.js`;
+
+      logger.log('writting to ', script.name);
+
+      await writeFile(pathToFileTSFile, script.code || '');
+    } else {
+      logger.log('fail to sync script with kye ', command.changeScriptCommand.key.localKey);
+    }
+  }
+}
+
 function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
   let commangFromServerPr: Promise<O.Option<RequestResponse | RequestError>> | null = null;
 
@@ -365,9 +420,26 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
           commands => commands.filter((command): command is [string, string] => command[1] !== null),
           commnads => commnads.sort((c1, c2) => Number(c1[1]) - Number(c2[1]))
         );
+        const supportedCommands = pipe(
+          _commandNumber.value,
+          commands => commands.response.filter(isRequestChangeScriptCommand)
+        );
 
-        logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
-        logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+        if (_commandNumber.value.response.length > supportedCommands.length) {
+          logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
+          logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+
+          logger.putLine(getReplUserInputLine({ state: 'warn' }));
+        } else if (supportedCommands.length > 0) {
+          logger.log('Your application was updated outside appmaker-static, trying to sync with local files');
+          api.stopWatch();
+          await tryToSyncScript(api, supportedCommands);
+          api.watch();
+
+          api.setCommandNumber(O.some(supportedCommands[supportedCommands.length - 1]!.changeScriptCommand.sequenceNumber));
+
+          logger.putLine(getReplUserInputLine({ state: 'ready' }));
+        }
       } else if (O.isSome(_commandNumber) && isRequestError(_commandNumber.value)) {
         logger.log('Error retriving sequence number from the server');
       } else if (O.isSome(_commandNumber) && Object.keys(_commandNumber.value).length === 0) {
@@ -431,7 +503,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                         logger.log(`Update: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`)
                       }
 
-                      script.code = newContent;
+                      updateScript(script, newContent);
 
                       api.setCommandNumber(pipe(
                         r,

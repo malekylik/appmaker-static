@@ -1,12 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initAppMakerApp = exports.App = void 0;
+exports.initAppMakerApp = exports.App = exports.updateScript = void 0;
 const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
 const views_generating_1 = require("./views-generating");
 const appmaker_view_utils_1 = require("../functional/appmaker/appmaker-view-utils");
 const app_validatior_1 = require("./app-validatior");
+function updateScript(script, newCode) {
+    script.code = newCode;
+    // TODO: should be synced with the new code
+    // script.exports 
+}
+exports.updateScript = updateScript;
 // TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 class App {
     constructor() {

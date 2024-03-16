@@ -17,6 +17,12 @@ function getReplUserInputLine(status) {
                 break;
             }
             ;
+        case 'warn':
+            {
+                statusPart = chalk.yellow('warning');
+                break;
+            }
+            ;
     }
     return `repl (${statusPart})$ `;
 }

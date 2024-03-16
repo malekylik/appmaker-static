@@ -1,11 +1,12 @@
 import * as chalk from 'chalk';
 
-export function getReplUserInputLine(status: { state: 'ready' | 'loading' }) {
+export function getReplUserInputLine(status: { state: 'ready' | 'loading' | 'warn' }) {
   let statusPart = '';
 
   switch (status.state) {
     case 'ready': { statusPart = chalk.green('ready'); break; };
     case 'loading': { statusPart = chalk.blueBright('loading'); break; };
+    case 'warn': { statusPart = chalk.yellow('warning'); break; };
   }
 
   return `repl (${statusPart})$ `;

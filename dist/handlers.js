@@ -24,6 +24,7 @@ const rm = (0, node_util_1.promisify)(node_fs_1.rm);
 const readFile = (0, node_util_1.promisify)(node_fs_1.readFile);
 const exec = (0, node_util_1.promisify)(require('node:child_process').exec);
 const stat = (0, node_util_1.promisify)(node_fs_1.stat);
+const writeFile = (0, node_util_1.promisify)(node_fs_1.writeFile);
 function getCommandNumberResponse(response) {
     return response
         .response
@@ -227,6 +228,45 @@ async function handleUserInput(api, data) {
         logger_1.logger.log('unknown command', command);
     }
 }
+function applyModificationsToScript(source, modifications) {
+    let pointer = 0;
+    // TODO: chech in the end modicfied str.length is the same as pointer
+    return modifications.reduce((str, modification) => {
+        if (modification.type === 'SKIP') {
+            pointer += modification.length;
+            return str;
+        }
+        if (modification.type === 'INSERT') {
+            const newStr = str.slice(0, pointer) + modification.text + str.slice(pointer);
+            pointer += modification.length;
+            return newStr;
+        }
+        if (modification.type === 'DELETE') {
+            // TODO; check the deleted potion of the string is the same as modification.text
+            const newStr = str.slice(0, pointer) + str.slice(pointer + modification.length);
+            return newStr;
+        }
+        return str;
+    }, source);
+}
+async function tryToSyncScript(api, commands) {
+    const app = api.getApp();
+    for (let i = 0; i < commands.length; i++) {
+        const command = commands[i];
+        const script = app.scripts.find(script => script.key === command.changeScriptCommand.key.localKey);
+        if (script) {
+            const changedStr = applyModificationsToScript(script.code || '', command.changeScriptCommand.scriptChange.modifications);
+            (0, app_1.updateScript)(script, changedStr);
+            const pathToProject = api.getOptions().outDir;
+            const pathToFileTSFile = `${pathToProject}/${script.name}.js`;
+            logger_1.logger.log('writting to ', script.name);
+            await writeFile(pathToFileTSFile, script.code || '');
+        }
+        else {
+            logger_1.logger.log('fail to sync script with kye ', command.changeScriptCommand.key.localKey);
+        }
+    }
+}
 function getFuncToSyncWorkspace(api) {
     let commangFromServerPr = null;
     return async function checkForCommandNumber() {
@@ -247,8 +287,20 @@ function getFuncToSyncWorkspace(api) {
                         O.isSome(command) ? command.value.sequenceNumber : null
                     ]);
                 }), commands => commands.filter((command) => command[1] !== null), commnads => commnads.sort((c1, c2) => Number(c1[1]) - Number(c2[1])));
-                logger_1.logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
-                logger_1.logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+                const supportedCommands = (0, function_1.pipe)(_commandNumber.value, commands => commands.response.filter(appmaker_network_actions_1.isRequestChangeScriptCommand));
+                if (_commandNumber.value.response.length > supportedCommands.length) {
+                    logger_1.logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
+                    logger_1.logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
+                    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'warn' }));
+                }
+                else if (supportedCommands.length > 0) {
+                    logger_1.logger.log('Your application was updated outside appmaker-static, trying to sync with local files');
+                    api.stopWatch();
+                    await tryToSyncScript(api, supportedCommands);
+                    api.watch();
+                    api.setCommandNumber(O.some(supportedCommands[supportedCommands.length - 1].changeScriptCommand.sequenceNumber));
+                    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+                }
             }
             else if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestError)(_commandNumber.value)) {
                 logger_1.logger.log('Error retriving sequence number from the server');
@@ -294,7 +346,7 @@ function watchProjectFiles(folder, api) {
                                     if (newContent === '') {
                                         logger_1.logger.log(`Update: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`);
                                     }
-                                    script.code = newContent;
+                                    (0, app_1.updateScript)(script, newContent);
                                     api.setCommandNumber((0, function_1.pipe)(r, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
                                     return r;
                                 });
