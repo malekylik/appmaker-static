@@ -217,7 +217,8 @@ async function handleUserInput(api, data) {
         logger_1.logger.silent(false);
         api.setCommandNumber((0, function_1.pipe)(commangFromServer, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
         api.watch();
-        initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
+        api.setState('ready');
+        initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir, api.getState());
     }
     else if (command === InteractiveModeCommands.screenshot) {
     }
@@ -226,6 +227,7 @@ async function handleUserInput(api, data) {
     }
     else {
         logger_1.logger.log('unknown command', command);
+        api.writeUserPrompt();
     }
 }
 function applyModificationsToScript(source, modifications) {
@@ -291,7 +293,8 @@ function getFuncToSyncWorkspace(api) {
                 if (_commandNumber.value.response.length > supportedCommands.length) {
                     logger_1.logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
                     logger_1.logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
-                    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'warn' }));
+                    api.setState('warn');
+                    api.writeUserPrompt();
                 }
                 else if (supportedCommands.length > 0) {
                     logger_1.logger.log('Your application was updated outside appmaker-static, trying to sync with local files');
@@ -299,7 +302,8 @@ function getFuncToSyncWorkspace(api) {
                     await tryToSyncScript(api, supportedCommands);
                     api.watch();
                     api.setCommandNumber(O.some(supportedCommands[supportedCommands.length - 1].changeScriptCommand.sequenceNumber));
-                    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+                    api.setState('ready');
+                    api.writeUserPrompt();
                 }
             }
             else if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestError)(_commandNumber.value)) {
@@ -353,7 +357,8 @@ function watchProjectFiles(folder, api) {
                             }
                         };
                         if (repl_scheduler_1.replScheduler.getJobsCount() === 0) {
-                            logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'loading' }));
+                            api.setState('loading');
+                            api.writeUserPrompt();
                         }
                         const p = repl_scheduler_1.replScheduler.schedule(job);
                         return p;
@@ -367,7 +372,8 @@ function watchProjectFiles(folder, api) {
                     if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestResponse)(done.value)) {
                         logger_1.logger.log('Script updated: ' + (0, repl_logger_1.colorPath)(filenameObj.name));
                         if (repl_scheduler_1.replScheduler.getJobsCount() === 0) {
-                            logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+                            api.setState('ready');
+                            api.writeUserPrompt();
                         }
                     }
                     else if (O.isSome(done) && (0, appmaker_network_actions_1.isRequestError)(done.value)) {
@@ -388,12 +394,12 @@ function watchProjectFiles(folder, api) {
     });
     return { unsubscribe: () => { ac.abort(); } };
 }
-function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir) {
+function initConsoleForInteractiveMode(xsrfToken, commandNumber, outDir, state) {
     logger_1.logger.log((0, repl_logger_1.colorImportantMessage)('Interactive Mode'));
     (0, function_1.pipe)(xsrfToken, O.chain(v => O.some(logger_1.logger.log('run xsrfToken ' + (0, repl_logger_1.colorValue)(v)))));
     (0, function_1.pipe)(commandNumber, O.chain(v => O.some(logger_1.logger.log('run commandNumber ' + (0, repl_logger_1.colorValue)(v)))));
     logger_1.logger.log(`Watching for file changes on ${(0, repl_logger_1.colorPath)(outDir)}`);
-    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state: 'ready' }));
+    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state }));
 }
 var InteractiveModeCommands;
 (function (InteractiveModeCommands) {
@@ -408,6 +414,7 @@ var InteractiveModeCommands;
 async function handleInteractiveApplicationMode(options) {
     function run(pageAPI) {
         return new Promise(async (resolve, reject) => {
+            let state = 'ready';
             let { app, generatedFiles } = await handleExportProject(pageAPI, options.appId, options.outDir);
             let syncInterval = -1;
             let watcherSubscription = { unsubscribe: () => { } };
@@ -441,6 +448,15 @@ async function handleInteractiveApplicationMode(options) {
                 getXsrfToken() {
                     return xsrfToken;
                 },
+                getState() {
+                    return state;
+                },
+                setState(_state) {
+                    state = _state;
+                },
+                writeUserPrompt() {
+                    logger_1.logger.putLine((0, repl_logger_1.getReplUserInputLine)({ state }));
+                },
                 watch() {
                     watcherSubscription.unsubscribe();
                     watcherSubscription = watchProjectFiles(options.outDir, userAPI);
@@ -467,7 +483,7 @@ async function handleInteractiveApplicationMode(options) {
             node_process_1.stdin.on('data', handler);
             syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000);
             console.clear();
-            initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
+            initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir, state);
         });
     }
     (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);

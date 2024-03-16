@@ -266,6 +266,11 @@ type HandleUserInputAPI = {
   watch(): void;
   stopWatch(): void;
 
+  getState(): InteractiveModeState;
+  setState(state: InteractiveModeState): void;
+
+  writeUserPrompt(): void;
+
   close(): Promise<void>;
 };
 
@@ -318,14 +323,16 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
     ));
 
     api.watch();
+    api.setState('ready');
 
-    initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir);
+    initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir, api.getState());
   } else if (command === InteractiveModeCommands.screenshot) {
 
   } else if (command === InteractiveModeCommands.update) {
     logger.log('update');
   } else {
     logger.log('unknown command', command);
+    api.writeUserPrompt();
   }
 }
 
@@ -429,7 +436,8 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
           logger.log('Your application is out-of-day - it was updated outside appmaker-static, please reload');
           logger.log('res', JSON.stringify(res).slice(0, 300) + (JSON.stringify(res).length > 300 ? '...' : ''));
 
-          logger.putLine(getReplUserInputLine({ state: 'warn' }));
+          api.setState('warn');
+          api.writeUserPrompt();
         } else if (supportedCommands.length > 0) {
           logger.log('Your application was updated outside appmaker-static, trying to sync with local files');
           api.stopWatch();
@@ -438,7 +446,8 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
 
           api.setCommandNumber(O.some(supportedCommands[supportedCommands.length - 1]!.changeScriptCommand.sequenceNumber));
 
-          logger.putLine(getReplUserInputLine({ state: 'ready' }));
+          api.setState('ready');
+          api.writeUserPrompt();
         }
       } else if (O.isSome(_commandNumber) && isRequestError(_commandNumber.value)) {
         logger.log('Error retriving sequence number from the server');
@@ -517,7 +526,8 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
               };
 
               if (replScheduler.getJobsCount() === 0) {
-                logger.putLine(getReplUserInputLine({ state: 'loading' }));
+                api.setState('loading');
+                api.writeUserPrompt();
               }
 
               const p = replScheduler.schedule(job);
@@ -534,7 +544,8 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
               logger.log('Script updated: ' + colorPath(filenameObj.name));
 
               if (replScheduler.getJobsCount() === 0) {
-                logger.putLine(getReplUserInputLine({ state: 'ready' }));
+                api.setState('ready');
+                api.writeUserPrompt();
               }
             } else if (O.isSome(done) && isRequestError(done.value)) {
               logger.log('Updating script error: ' + JSON.stringify(done.value));
@@ -554,7 +565,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
   return { unsubscribe: () => { ac.abort(); } };
 }
 
-function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string) {
+function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumber: O.Option<string>, outDir: string, state: InteractiveModeState) {
   logger.log(colorImportantMessage('Interactive Mode'));
 
   pipe(
@@ -568,7 +579,7 @@ function initConsoleForInteractiveMode(xsrfToken: O.Option<string>, commandNumbe
 
   logger.log(`Watching for file changes on ${colorPath(outDir)}`);
 
-  logger.putLine(getReplUserInputLine({ state: 'ready' }));
+  logger.putLine(getReplUserInputLine({ state }));
 }
 
 enum InteractiveModeCommands {
@@ -581,9 +592,12 @@ enum InteractiveModeCommands {
   update = 'update',
 }
 
+export type InteractiveModeState = 'ready' | 'loading' | 'warn';
+
 export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
+      let state: InteractiveModeState = 'ready';
       let { app, generatedFiles } = await handleExportProject(pageAPI, options.appId, options.outDir); 
 
       let syncInterval = -1;
@@ -627,6 +641,17 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
           return xsrfToken;
         },
 
+        getState() {
+          return state;
+        },
+        setState(_state) {
+          state = _state;
+        },
+
+        writeUserPrompt() {
+          logger.putLine(getReplUserInputLine({ state }));
+        },
+
         watch() {
           watcherSubscription.unsubscribe();
           watcherSubscription = watchProjectFiles(options.outDir, userAPI);
@@ -663,7 +688,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
       syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000) as unknown as number;
 
       console.clear();
-      initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir);
+      initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir, state);
     });
   }
 

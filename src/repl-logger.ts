@@ -1,6 +1,7 @@
 import * as chalk from 'chalk';
+import type { InteractiveModeState } from './handlers';
 
-export function getReplUserInputLine(status: { state: 'ready' | 'loading' | 'warn' }) {
+export function getReplUserInputLine(status: { state: InteractiveModeState }) {
   let statusPart = '';
 
   switch (status.state) {
