@@ -1,5 +1,7 @@
-import { ScriptFile } from './appmaker';
+import { Script } from './appmaker/app';
 
-export function generateResultXML(initXML: ScriptFile, res: string) {
-  return (`<script key="${initXML.script.key}" type="${initXML.script.type}" name="${initXML.script.name}"><![CDATA[${res}]]></script>`);
+export function generateResultXML(script: Script, res: string) {
+  const prefix = '\n'; // AppMaker puts a new line in the beginning of scripts
+  return prefix +
+    (`<script key="${script.key}" type="${script.type}" name="${script.name}"><![CDATA[${res}]]></script>`);
 }

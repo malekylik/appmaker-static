@@ -21,12 +21,12 @@ function checkTypes(filesToCheck, tsConfig) {
     return allDiagnostics;
 }
 exports.checkTypes = checkTypes;
-function checkLinting(scriptsFiles, config) {
+function checkLinting(app, config) {
     const report = [];
-    for (let i = 0; i < scriptsFiles.length; i++) {
-        const { name, file } = scriptsFiles[i];
-        if (file.script['#text']) {
-            const _report = lint(file.script['#text'], config, name);
+    for (let i = 0; i < app.scripts.length; i++) {
+        const { name, code } = app.scripts[i];
+        if (code) {
+            const _report = lint(code, config, name);
             report.push({
                 name,
                 report: _report,
@@ -36,11 +36,11 @@ function checkLinting(scriptsFiles, config) {
     return report;
 }
 exports.checkLinting = checkLinting;
-function checkForEmptyScriptsFiles(scriptsFiles) {
+function checkForEmptyScriptsFiles(app) {
     const emptyScripts = [];
-    for (let i = 0; i < scriptsFiles.length; i++) {
-        const { name, file } = scriptsFiles[i];
-        if (!file.script['#text']) {
+    for (let i = 0; i < app.scripts.length; i++) {
+        const { name, code } = app.scripts[i];
+        if (!code) {
             emptyScripts.push(name);
         }
     }

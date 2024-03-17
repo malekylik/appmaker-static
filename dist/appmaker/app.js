@@ -1,36 +1,40 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initAppMakerApp = exports.App = void 0;
+exports.initAppMakerApp = exports.App = exports.updateScript = void 0;
 const type_declaration_1 = require("./type-declaration");
 const script_file_1 = require("./script-file");
 const generate_utils_1 = require("./generate-utils");
 const views_generating_1 = require("./views-generating");
 const appmaker_view_utils_1 = require("../functional/appmaker/appmaker-view-utils");
+const app_validatior_1 = require("./app-validatior");
+function updateScript(script, newCode) {
+    script.code = newCode;
+    // TODO: should be synced with the new code
+    // script.exports 
+}
+exports.updateScript = updateScript;
 // TODO: add generating of React components (declare function SimpleLabel(props: { children: JSX.Element }): JSX.Element;)
 class App {
     constructor() {
         // TODO: replace with newViews
+        this.oldViews = [];
         this.views = [];
-        this.newViews = [];
         this.models = [];
+        // TODO: shouldnt be public
         this.scripts = [];
-        this.customComponentKeyMap = new Map();
         this.customWidgetMap = new Map();
+        this.validatior = new app_validatior_1.AppValidator();
+    }
+    addOldView(view) {
+        this.oldViews.push(view);
     }
     addView(view) {
-        if (view.isViewFragment) {
-            this.customComponentKeyMap.set(view.key, view.name);
-            this.customComponentKeyMap.set(view.name, view.key);
-        }
+        // TODO: add to customWidgetMap
         this.views.push(view);
     }
-    addNewView(view) {
-        // TODO: add to customWidgetMap
-        this.newViews.push(view);
-    }
-    addNewViews(views) {
-        this.newViews = this.newViews.concat(views);
-        this.customWidgetMap = (0, appmaker_view_utils_1.createCustomWidgetMap)(this.newViews);
+    addViews(views) {
+        this.views = this.views.concat(views);
+        this.customWidgetMap = (0, appmaker_view_utils_1.createCustomWidgetMap)(this.views.map(v => v.view));
     }
     addModel(model) {
         this.models.push(model);
@@ -39,8 +43,8 @@ class App {
         this.scripts.push(script);
     }
     generateAppDeclarationFile() {
-        const views = this.views.filter(view => !view.isViewFragment);
-        const viewFragments = this.views.filter(view => view.isViewFragment);
+        const views = this.oldViews.filter(view => !view.isViewFragment);
+        const viewFragments = this.oldViews.filter(view => view.isViewFragment);
         return (0, type_declaration_1.generateTypeDeclarationFile)(views, viewFragments, this.models, this.scripts);
     }
     generateDataserviceSourceFile() {
@@ -50,10 +54,16 @@ class App {
         return (0, script_file_1.generateDatasourceSourceFile)(this.models);
     }
     generateWidgetEventsSourceFile() {
-        return (0, script_file_1.generateWidgetEventsSourceFile)(this.views);
+        return (0, script_file_1.generateWidgetEventsSourceFile)(this.oldViews);
     }
     generateJSXForViews() {
-        return (0, views_generating_1.generateJSXForViews)(this.newViews, this.customWidgetMap);
+        return (0, views_generating_1.generateJSXForViews)(this.views, this.customWidgetMap);
+    }
+    setAppValidator(validator) {
+        this.validatior = validator;
+    }
+    getAppValidator() {
+        return this.validatior;
     }
 }
 exports.App = App;
@@ -68,6 +78,7 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles, newViews) {
     modelsFiles.forEach((modelFile) => {
         const file = modelFile.file;
         const model = {
+            path: modelFile.path,
             name: file.model.name,
             fields: parseModelField(file.model.field),
             dataSources: Array.isArray(file.model.dataSource) ? file.model.dataSource : [file.model.dataSource]
@@ -88,19 +99,22 @@ function initAppMakerApp(app, modelsFiles, viewsFiles, scriptsFiles, newViews) {
                 : [],
             bindings: bindings,
             file: file,
+            path: viewFile.path
         };
-        app.addView(view);
+        app.addOldView(view);
     });
     scriptsFiles.forEach((scriptFile) => {
         const file = scriptFile.file;
         const script = {
+            path: scriptFile.path,
             name: file.script.name,
             type: file.script.type,
+            key: file.script.key,
             code: file.script['#text'] ?? null,
             exports: file.script['#text'] ? (0, generate_utils_1.getScriptExports)(file.script['#text']) : [],
         };
         app.addScript(script);
     });
-    app.addNewViews(newViews.map(v => v.component));
+    app.addViews(newViews.map(viewFile => ({ path: viewFile.path, view: viewFile.content.component })));
 }
 exports.initAppMakerApp = initAppMakerApp;

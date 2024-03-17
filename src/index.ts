@@ -1,11 +1,11 @@
-// import { getScriptExports } from './appmaker/generate-utils';
 import { ApplicationMode, parseCommandLineArgs } from './command-line';
 import { handleInteractiveApplicationMode, handleOfflineApplicationMode, handleRemoteApplicationMode } from './handlers';
+import { logger } from './logger';
 
 async function run() {
   const options = parseCommandLineArgs();
 
-  console.log(`Run with mode "${options.mode}"`);
+  logger.log(`Run with mode "${options.mode}"`);
 
   try {
     if (options.mode === ApplicationMode.remote) {
@@ -15,10 +15,10 @@ async function run() {
     } if (options.mode === ApplicationMode.interactive) {
       await handleInteractiveApplicationMode(options);
     } else {
-      console.log(`Unsupported modes: "${options.mode}"`);
+      logger.log(`Unsupported modes: "${options.mode}"`);
     }
   } catch (e) {
-    console.log(e);
+    logger.log(e);
   }
 }
 

@@ -213,8 +213,10 @@ function createParsedBinding(binding: ViewBinding, name: string, value: string):
   return ({ ...binding, name, value });
 }
 
-export function generateJSXForViews(newViews: Array<AppMakerView>, customWidgetMap: Map<string, AppMakerView>): Array<{ name: string; code: string; }> {
-  return newViews.map(view => {
+export function generateJSXForViews(newViews: Array<{ path: string; view: AppMakerView }>, customWidgetMap: Map<string, AppMakerView>): Array<{ path: string; code: string; name: string }> {
+  return newViews.map((viewObj) => {
+    const view = viewObj.view;
+
     const currentTag: Array<{ tag: string; name: string }> = [];
     const datasources: Array<string | null> = [];
     const viewName = pipe(
@@ -313,6 +315,6 @@ export function generateJSXForViews(newViews: Array<AppMakerView>, customWidgetM
         ts.ListFormat.MultiLine | ts.ListFormat.PreserveLines | ts.ListFormat.PreferNewLine,
         ts.factory.createNodeArray(statements), resultFile);
 
-    return ({ name: viewName, code: result });
+    return ({ path: viewName, code: result, /** TODO: remove */ name: viewName });
   });
 }

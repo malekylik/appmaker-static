@@ -1,17 +1,17 @@
+import * as chalk from 'chalk';
 import * as ts from 'typescript';
 import { LintingReport } from './validate';
-import * as chalk from 'chalk';
+import { logger } from './logger';
 
-
-function coloringNumber(text: string | number): string {
+export function coloringNumber(text: string | number): string {
   return chalk.yellowBright(text);
 }
 
-function coloringPath(text: string | number): string {
+export function coloringPath(text: string | number): string {
   return chalk.cyan(text);
 }
 
-function coloringCode(text: string | number): string {
+export function coloringCode(text: string | number): string {
   return chalk.blackBright(text);
 }
 
@@ -20,7 +20,7 @@ export function printTSCheckDiagnostics(diagnostics: ts.Diagnostic[]): void {
   let fileNumber = 0;
   let diagnosticOfFile = 0;
 
-  console.log('---TSCheckDiagnostic---');
+  logger.log('---TSCheckDiagnostic---');
 
   diagnostics.forEach((diagnostic) => {
     if (diagnostic.file) {
@@ -30,17 +30,17 @@ export function printTSCheckDiagnostics(diagnostics: ts.Diagnostic[]): void {
 
         diagnosticOfFile = 0;
 
-        console.log('\n\n');
-        console.log(`---${coloringNumber(fileNumber)} - ${coloringPath(diagnostic.file.fileName)}---`);
+        logger.log('\n\n');
+        logger.log(`---${coloringNumber(fileNumber)} - ${coloringPath(diagnostic.file.fileName)}---`);
       }
 
       diagnosticOfFile += 1;
 
       let { line, character } = ts.getLineAndCharacterOfPosition(diagnostic.file, diagnostic.start!);
       let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
-      console.log(`\t${coloringNumber(fileNumber)}.${coloringNumber(diagnosticOfFile)} - ${coloringPath(diagnostic.file.fileName)} (${coloringNumber(line + 1)},${coloringNumber(character + 1)}) ${coloringCode(`TS${diagnostic.code}`)}: ${message}`);
+      logger.log(`\t${coloringNumber(fileNumber)}.${coloringNumber(diagnosticOfFile)} - ${coloringPath(diagnostic.file.fileName)} (${coloringNumber(line + 1)},${coloringNumber(character + 1)}) ${coloringCode(`TS${diagnostic.code}`)}: ${message}`);
     } else {
-      console.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+      logger.log(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
     }
   });
 }
@@ -50,13 +50,13 @@ export function printLintingReport(lintingReport: LintingReport): void {
     const { name, report } = lintingReport[i]!;
   
     if (report.fixed) {
-      console.log(`-----${coloringPath(name)}-----`);
+      logger.log(`-----${coloringPath(name)}-----`);
   
-      console.log('Not fixed', report.messages);
+      logger.log('Not fixed', report.messages);
     }
   }
 }
 
 export function printEmptyScripts(emptyScripts: Array<string>): void {
-  console.log('empty scripts', emptyScripts);
+  logger.log('empty scripts', emptyScripts);
 }

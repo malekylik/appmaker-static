@@ -5,6 +5,7 @@ import * as O from 'fp-ts/lib/Option';
 import type { AppMakerView } from './appmaker-domain';
 
 import { traverseAppMakerView, findAppMakerNameProperty, findAppMakerIsCustomWidgetProperty } from './appmaker-view';
+import { logger } from '../../logger';
 
 export const isCustomWidget = (view: AppMakerView) =>
   pipe(
@@ -22,7 +23,7 @@ export function drawAppMakerTreeToConsole(v: AppMakerView, getInfoLine?: (key: s
   traverseAppMakerView(v, (v, d) => {
     let infoString = pipe(findAppMakerNameProperty(v.property), O.match(() => getInfoLine!(v.key, v.class, ''), (p) => getInfoLine!(v.key, v.class, p['#text'])));
 
-    console.log(`${' '.repeat(d.level)} | ${infoString}`);
+    logger.log(`${' '.repeat(d.level)} | ${infoString}`);
   });
 }
 

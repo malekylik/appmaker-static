@@ -1,4 +1,5 @@
 import * as commandLineArgs from 'command-line-args';
+import { logger } from './logger';
 
 
 const optionDefinitions = [
@@ -90,7 +91,7 @@ function parseBrowserCommandLineArgs(options: CommandLineOptions): BrowserComman
     } else if (headless === 'chrome') {
       browserOptions.headless = 'chrome';
     } else {
-      console.log(`unknown value for headless ${headless}. Stick with value "${browserOptions.headless}". Possible values: true, false, chrome`);
+      logger.log(`unknown value for headless ${headless}. Stick with value "${browserOptions.headless}". Possible values: true, false, chrome`);
     }
   }
 
@@ -108,12 +109,12 @@ function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandL
 
   if (appId) {
     if (login === undefined || password === undefined) {
-      console.log('For using script in remote mode please pass login and password');
+      logger.log('For using script in remote mode please pass login and password');
 
       process.exit(1);
     }
   } else {
-    console.log('For using script in remote mode please pass app id');
+    logger.log('For using script in remote mode please pass app id');
 
     process.exit(1);
   }
@@ -144,7 +145,7 @@ function getOptionsForOfflineMode(mode: ApplicationMode.offline, options: Comman
   } = options;
 
   if (!project) {
-    console.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
+    logger.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
 
     process.exit(1);
   }
@@ -164,18 +165,18 @@ function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options
 
   if (appId) {
     if (login === undefined || password === undefined) {
-      console.log('For using script in interactive mode please pass login and password');
+      logger.log('For using script in interactive mode please pass login and password');
 
       process.exit(1);
     }
 
     if (outDir === undefined) {
-      console.log('For using script in interactive mode please pass outDir, it`s used as working directory');
+      logger.log('For using script in interactive mode please pass outDir, it`s used as working directory');
 
       process.exit(1);
     }
   } else {
-    console.log('For using script in interactive mode please pass app id');
+    logger.log('For using script in interactive mode please pass app id');
 
     process.exit(1);
   }
@@ -206,7 +207,7 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
   const { mode } = options;
 
   if (!mode) {
-    console.log(`--mode is a required parameter, Please pass one of supported modes: ${getSupportedModesAsString()}`);
+    logger.log(`--mode is a required parameter, Please pass one of supported modes: ${getSupportedModesAsString()}`);
 
     process.exit(1);
   } else if (
@@ -214,7 +215,7 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
     mode !== ApplicationMode.offline &&
     mode !== ApplicationMode.remote
   ) {
-    console.log(`unknown --mode parameter: ${mode}. Please pass one of supported modes: ${getSupportedModesAsString()}`);
+    logger.log(`unknown --mode parameter: ${mode}. Please pass one of supported modes: ${getSupportedModesAsString()}`);
 
     process.exit(1);
   }

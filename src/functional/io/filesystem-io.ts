@@ -10,6 +10,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 import { stat } from 'node:fs';
 import { promisify } from 'node:util';
+import * as path from 'node:path';
 
 const {
   readdir: oldReaddir, readFile: oldReadFile, writeFile: oldWriteFile,
@@ -24,6 +25,16 @@ const _rm = promisify(oldRm);
 const _mkdir = promisify(oldMkDir);
 const _copyFile = promisify(oldCopyFile);
 const _stat = promisify(stat);
+
+export const parseFilePath = (fullPath: string): { fullPath: string; path: string; fullName: string; name: string; extension: string; } => {
+  const pathParts = fullPath.split(path.sep)
+  const _path = pathParts.slice(0, pathParts.length - 1);
+  const namePart = pathParts[pathParts.length - 1] || '';
+  const nameParts = namePart.split('.');
+  const extension = nameParts[nameParts.length - 1] || '';
+
+  return { fullPath, path: _path.join(path.sep), fullName: namePart, name: nameParts.slice(0, nameParts.length - 1).join('.'), extension };
+};
 
 export const readFile = (fileName: string): TE.TaskEither<string, string> => TE.tryCatch(() => _readFile(fileName), r => r instanceof Error ? r.message : 'readFile: unknown reason');
 export const readDir = (path: string): TE.TaskEither<string, string[]> => TE.tryCatch(() => _readdir(path), r => r instanceof Error ? r.message : 'readDir: unknown reason');

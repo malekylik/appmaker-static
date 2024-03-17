@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.tryToGetCommand = exports.tryToGetCommandName = exports.isRequestError = exports.isRequestAddComponentInfoCommand = exports.isRequestChangeScriptCommand = exports.isCommandLikeResponse = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = void 0;
+const function_1 = require("fp-ts/lib/function");
+const O = require("fp-ts/lib/Option");
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
@@ -38,9 +40,9 @@ function toUtfStr(str) {
     return end;
 }
 // key for importing project
-// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => logger.log(r))
 // command used for updating app
-// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => logger.log(r))
 async function getClientEnvironment(page) {
     const resultHandle = await page.evaluateHandle(() => window.clientEnvironment);
     const clientEnvironment = await resultHandle.jsonValue();
@@ -100,6 +102,23 @@ var CommnadId;
 // string application_key = 1;
 // // TODO(b/171309255): add comments.
 // int64 sequence_number = 2;
+const isRequestResponse = (response) => response !== null && typeof response === 'object' && 'response' in response && Array.isArray(response.response);
+exports.isRequestResponse = isRequestResponse;
+const isCommandLikeResponse = (response) => response !== null && typeof response === 'object' && 'sequenceNumber' in response;
+exports.isCommandLikeResponse = isCommandLikeResponse;
+const isRequestChangeScriptCommand = (response) => response !== null && typeof response === 'object' && 'changeScriptCommand' in response;
+exports.isRequestChangeScriptCommand = isRequestChangeScriptCommand;
+const isRequestAddComponentInfoCommand = (response) => response !== null && typeof response === 'object' && 'addComponentInfoCommand' in response;
+exports.isRequestAddComponentInfoCommand = isRequestAddComponentInfoCommand;
+const isRequestError = (response) => response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
+exports.isRequestError = isRequestError;
+const tryToGetCommandName = (response) => (0, function_1.pipe)(Object.keys(response), keys => keys
+    .map(key => key.match(/\w*Command$/) || [])
+    .map(m => m[0])
+    .filter(key => key !== undefined), findCommandKey => findCommandKey.length > 1 ? O.none : O.some(findCommandKey[0]));
+exports.tryToGetCommandName = tryToGetCommandName;
+const tryToGetCommand = (response) => (0, function_1.pipe)((0, exports.tryToGetCommandName)(response), O.chain(key => response[key || ''] ? O.some(response[key || '']) : O.none), O.chain(command => command && (0, exports.isCommandLikeResponse)(command) ? O.some(command) : O.none));
+exports.tryToGetCommand = tryToGetCommand;
 async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
     const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
         const body = {
@@ -126,14 +145,12 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
                         reader.read().then(({ done, value }) => {
                             // If there is no more data to read
                             if (done) {
-                                console.log('done', done);
                                 controller.close();
                                 return;
                             }
                             // Get the data and send it to the browser via the controller
                             controller.enqueue(value);
                             // Check chunks by logging to the console
-                            console.log(done, value);
                             push();
                         });
                     }
@@ -156,36 +173,33 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
 }
 exports.retrieveCommands = retrieveCommands;
 async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) {
-    console.log('changeScriptFile commandNumber', commandNumber);
-    console.log('changeScriptFile xsrfToken', xsrfToken);
-    console.log('changeScriptFile fileKey', fileKey);
-    const res = await page.evaluate((_xsrfToken, _appId, _login, _fileKey, _commandNumber, _prevContent, _content) => {
-        const body = {
-            "1": `${_login}:-906270374:1702911393847`, // dont know numbers
-            "2": {
-                "22": {
-                    "1": {
-                        "1": _appId,
-                        "2": { "1": 'z5c8syerDFnO7gio9jyNcqsG86WPymNC' }
-                    },
-                    "2": { "1": _content.length, "2": _prevContent.length,
-                        "3": [
-                            {
-                                "1": _prevContent.length,
-                                "2": { "1": _prevContent }, "3": 3
-                            }, { "1": _content.length, "2": { "1": _content }, "3": 2 }
-                        ] }, "3": "0"
-                }
-            },
-            "3": _commandNumber
-        };
+    const body = {
+        "1": `${login}:-65675019:1709725791108`, // dont know numbers
+        "2": {
+            "22": {
+                "1": {
+                    "1": appId,
+                    "2": { "1": fileKey }
+                },
+                "2": { "1": content.length, "2": prevContent.length,
+                    "3": [
+                        {
+                            "1": prevContent.length,
+                            "2": { "1": prevContent }, "3": 3
+                        }, { "1": content.length, "2": { "1": content }, "3": 2 }
+                    ] }, "3": "0"
+            }
+        },
+        "3": commandNumber
+    };
+    const res = await page.evaluate((_xsrfToken, _body) => {
         const payload = {
             method: 'POST',
             headers: {
                 'content-type': 'application/jspblite2', // check what the type
                 'x-framework-xsrf-token': _xsrfToken,
             },
-            body: JSON.stringify(body),
+            body: _body,
         };
         return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command', payload)
             .then(r => r.body)
@@ -199,14 +213,12 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
                         reader.read().then(({ done, value }) => {
                             // If there is no more data to read
                             if (done) {
-                                console.log('done', done);
                                 controller.close();
                                 return;
                             }
                             // Get the data and send it to the browser via the controller
                             controller.enqueue(value);
                             // Check chunks by logging to the console
-                            console.log(done, value);
                             push();
                         });
                     }
@@ -223,11 +235,16 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => reject('Error occurred while reading binary string');
         }));
-    }, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content);
+    }, xsrfToken, JSON.stringify(body));
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }
 exports.changeScriptFile = changeScriptFile;
+/**
+ * @param applicationId
+ * @param xsrfToken
+ * @returns result of exported AppMaker project as a string
+ */
 function exportProject(applicationId, xsrfToken) {
     return fetch('https://appmaker.googleplex.com/_am/exportApp', {
         method: 'POST',
@@ -245,14 +262,12 @@ function exportProject(applicationId, xsrfToken) {
                     reader.read().then(({ done, value }) => {
                         // If there is no more data to read
                         if (done) {
-                            console.log('done', done);
                             controller.close();
                             return;
                         }
                         // Get the data and send it to the browser via the controller
                         controller.enqueue(value);
                         // Check chunks by logging to the console
-                        console.log(done, value);
                         push();
                     });
                 }

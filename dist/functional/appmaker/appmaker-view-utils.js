@@ -4,6 +4,7 @@ exports.createCustomWidgetMap = exports.drawAppMakerTreeToConsole = exports.isCu
 const function_1 = require("fp-ts/lib/function");
 const O = require("fp-ts/lib/Option");
 const appmaker_view_1 = require("./appmaker-view");
+const logger_1 = require("../../logger");
 const isCustomWidget = (view) => (0, function_1.pipe)(view, (v) => (0, appmaker_view_1.findAppMakerIsCustomWidgetProperty)(v.property), O.chain(p => O.some(p['#text'])));
 exports.isCustomWidget = isCustomWidget;
 function drawAppMakerTreeToConsole(v, getInfoLine) {
@@ -12,7 +13,7 @@ function drawAppMakerTreeToConsole(v, getInfoLine) {
     }
     (0, appmaker_view_1.traverseAppMakerView)(v, (v, d) => {
         let infoString = (0, function_1.pipe)((0, appmaker_view_1.findAppMakerNameProperty)(v.property), O.match(() => getInfoLine(v.key, v.class, ''), (p) => getInfoLine(v.key, v.class, p['#text'])));
-        console.log(`${' '.repeat(d.level)} | ${infoString}`);
+        logger_1.logger.log(`${' '.repeat(d.level)} | ${infoString}`);
     });
 }
 exports.drawAppMakerTreeToConsole = drawAppMakerTreeToConsole;

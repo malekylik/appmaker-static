@@ -1,5 +1,8 @@
 import * as puppeteer from 'puppeteer';
 
+import { pipe } from 'fp-ts/lib/function';
+import * as O from 'fp-ts/lib/Option';
+
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 
@@ -42,10 +45,10 @@ function toUtfStr(str: string): string {
 
 
 // key for importing project
-// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/base/upload/v1/generate_file_upload_key', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0' } }).then((r) => r.json()).then(r => logger.log(r))
 
 // command used for updating app
-// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => console.log(r))
+// fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', { method: 'POST', headers: { 'x-framework-xsrf-token': 'X1d1M1hhdVQ1akV4NGVDSWdldlJraHZhSmJqblJPSlpMYmZnSzlXVnhBMHwxNjY2Mjc2NzUyMTA0', 'content-type': 'application/jspblite2' }, body: JSON.stringify({"1":"RdeRXXpJpD", "2":"21621"}) }).then((r) => r.json()).then(r => logger.log(r))
 
 export async function getClientEnvironment(page: puppeteer.Page): Promise<{ initialXsrfToken: string }> {
   const resultHandle = await page.evaluateHandle(() => (window as any).clientEnvironment);
@@ -118,6 +121,69 @@ enum CommnadId {
 // // TODO(b/171309255): add comments.
 // int64 sequence_number = 2;
 
+export const isRequestResponse = (response: unknown): response is RequestResponse =>
+  response !== null && typeof response === 'object' && 'response' in response && Array.isArray(response.response);
+
+export const isCommandLikeResponse = (response: unknown): response is CommnadLikeResponse =>
+  response !== null && typeof response === 'object' && 'sequenceNumber' in response;
+
+export const isRequestChangeScriptCommand = (response: unknown): response is ChangeScriptCommand =>
+  response !== null && typeof response === 'object' && 'changeScriptCommand' in response;
+export const isRequestAddComponentInfoCommand = (response: unknown): response is AddComponentInfoCommand =>
+  response !== null && typeof response === 'object' && 'addComponentInfoCommand' in response;
+
+
+export const isRequestError = (response: unknown): response is RequestError =>
+  response !== null && typeof response === 'object' && 'type' in response && 'message' in response;
+
+export const tryToGetCommandName = (response: Record<string, unknown>): O.Option<string> =>
+  pipe(
+    Object.keys(response),
+    keys => keys
+    .map(key => key.match(/\w*Command$/) || [])
+    .map(m => m[0])
+    .filter(key => key !== undefined),
+    findCommandKey => findCommandKey.length > 1 ? O.none : O.some(findCommandKey[0]!)
+  );
+
+export const tryToGetCommand = (response: Record<string, unknown>): O.Option<CommnadLikeResponse> =>
+  pipe(
+    tryToGetCommandName(response),
+    O.chain(key => response[key || ''] ? O.some(response[key || '']) : O.none),
+    O.chain(command => command && isCommandLikeResponse(command) ? O.some(command) : O.none)
+  );
+
+export type CommnadLikeResponse = {
+  sequenceNumber: string;
+};
+
+export type AddComponentInfoCommand = {
+  addComponentInfoCommand: {
+    //TODO: fill
+
+    sequenceNumber: string;
+  }
+};
+
+export type ScriptModifiaction = {
+  length: number; text: string; type: 'DELETE' | 'INSERT'
+} | { length: number; type: 'SKIP' };
+
+export type ChangeScriptCommand = {
+  changeScriptCommand: {
+    key: { applicationKey: string; localKey: string; };
+    scriptChange: {
+      lengthAfter: number;
+      lengthBefore: number;
+      modifications: Array<ScriptModifiaction>;
+    };
+    sequenceNumber: string;
+  }
+};
+
+export type RequestResponse = { response: Array<AddComponentInfoCommand | ChangeScriptCommand> };
+export type RequestError = { type: string; message: string; unknownException?: { exceptionTypeName: 'UNKNOWN_EXCEPTION' } };
+
 export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, appKey: string, currentCommandNumber: string) {
   const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
     const body = {
@@ -147,14 +213,12 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
             reader.read().then(({ done, value }) => {
               // If there is no more data to read
               if (done) {
-                console.log('done', done);
                 controller.close();
                 return;
               }
               // Get the data and send it to the browser via the controller
               controller.enqueue(value);
               // Check chunks by logging to the console
-              console.log(done, value);
               push();
             });
           }
@@ -174,52 +238,37 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
     }));
   }, xsrfToken, appKey, currentCommandNumber) as string;
 
-  type RequestResponse = { response: Array<{ changeScriptCommand: {
-    key: { applicationKey: string; localKey: string; };
-    scriptChange: {
-      lengthAfter: number;
-      lengthBefore: number;
-      modifications: Array<{ length: number; text: string; type: 'DELETE' | 'INSERT' }>;
-    };
-    sequenceNumber: string;
-  } }> };
-  type RequestError = { type: string; message: string; };
-
   const parsedRes: RequestResponse | RequestError = JSON.parse(res);
 
   return parsedRes;
 }
 
 export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, appId: string, login: string, fileKey: string, commandNumber: string, prevContent: string, content: string) {
-  console.log('changeScriptFile commandNumber', commandNumber);
-  console.log('changeScriptFile xsrfToken', xsrfToken);
-  console.log('changeScriptFile fileKey', fileKey);
-  
-  const res = await page.evaluate((_xsrfToken, _appId, _login, _fileKey, _commandNumber, _prevContent, _content) => {
-    const body = {
-      "1": `${_login}:-906270374:1702911393847`, // dont know numbers
-      "2": {
-        "22": {
-          "1": {
-            "1": _appId,
-            "2": { "1": 'z5c8syerDFnO7gio9jyNcqsG86WPymNC' }
+  const body = {
+    "1": `${login}:-65675019:1709725791108`, // dont know numbers
+    "2": {
+      "22": {
+        "1": {
+          "1": appId,
+          "2": { "1": fileKey }
+      },
+      "2": { "1": content.length, "2": prevContent.length,
+        "3":[
+          {
+          "1": prevContent.length,
+          "2": {"1":prevContent}, "3":3}, { "1":content.length, "2":{ "1":content }, "3":2}]}, "3":"0" }
         },
-        "2": { "1": _content.length, "2": _prevContent.length,
-          "3":[
-            {
-            "1": _prevContent.length,
-            "2": {"1":_prevContent}, "3":3}, { "1":_content.length, "2":{ "1":_content }, "3":2}]}, "3":"0" }
-          },
-      "3": _commandNumber
-      };
-  
+    "3": commandNumber
+  };
+
+  const res = await page.evaluate((_xsrfToken, _body) => {
     const payload = {
       method: 'POST',
        headers: {
         'content-type': 'application/jspblite2', // check what the type
         'x-framework-xsrf-token': _xsrfToken,
       },
-       body: JSON.stringify(body),
+       body: _body,
     };
   
     return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command', payload)
@@ -235,14 +284,12 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
             reader.read().then(({ done, value }) => {
               // If there is no more data to read
               if (done) {
-                console.log('done', done);
                 controller.close();
                 return;
               }
               // Get the data and send it to the browser via the controller
               controller.enqueue(value);
               // Check chunks by logging to the console
-              console.log(done, value);
               push();
             });
           }
@@ -260,7 +307,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, xsrfToken, appId, login, fileKey, commandNumber, prevContent, content) as string;
+  }, xsrfToken, JSON.stringify(body)) as string;
 
   type RequestResponse = { response: Array<{ changeScriptCommand: {
     key: { applicationKey: string; localKey: string; };
@@ -278,6 +325,11 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
   return parsedRes;
 }
 
+/**
+ * @param applicationId
+ * @param xsrfToken
+ * @returns result of exported AppMaker project as a string
+ */
 export function exportProject (applicationId: string, xsrfToken: string): Promise<string> {
   return fetch('https://appmaker.googleplex.com/_am/exportApp', {
     method: 'POST',
@@ -295,14 +347,12 @@ export function exportProject (applicationId: string, xsrfToken: string): Promis
           reader.read().then(({ done, value }) => {
             // If there is no more data to read
             if (done) {
-              console.log('done', done);
               controller.close();
               return;
             }
             // Get the data and send it to the browser via the controller
             controller.enqueue(value);
             // Check chunks by logging to the console
-            console.log(done, value);
             push();
           });
         }
