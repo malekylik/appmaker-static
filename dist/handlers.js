@@ -136,8 +136,8 @@ async function unzipProject(passedPath) {
         return pathToProject;
     }
     catch (e) {
-        logger_1.logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-        logger_1.logger.log(e);
+        console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+        console.log(e);
         process.exit(1);
     }
 }
@@ -155,12 +155,12 @@ async function handleOfflineApplicationMode(options) {
         pathStat = await stat(options.project);
     }
     catch {
-        logger_1.logger.log(`Couldn't find path: ${options.project}`);
+        console.log(`Couldn't find path: ${options.project}`);
         process.exit(1);
     }
     const isZip = path.extname(options.project) === '.zip';
     if (!pathStat.isDirectory() && !isZip) {
-        logger_1.logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+        console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
         process.exit(1);
     }
     let result = null;

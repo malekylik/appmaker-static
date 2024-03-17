@@ -186,8 +186,8 @@ async function unzipProject(passedPath: string): Promise<string> {
     await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
     return pathToProject;
   } catch (e) {
-    logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-    logger.log(e);
+    console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+    console.log(e);
     process.exit(1);
   }
 }
@@ -209,14 +209,14 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   try {
     pathStat = await stat(options.project);
   } catch {
-    logger.log(`Couldn't find path: ${options.project}`);
+    console.log(`Couldn't find path: ${options.project}`);
     process.exit(1);
   }
 
   const isZip = path.extname(options.project) === '.zip';
 
   if (!pathStat.isDirectory() && !isZip) {
-    logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+    console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
     process.exit(1);
   }
 

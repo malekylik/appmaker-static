@@ -111,12 +111,12 @@ function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandL
 
   if (appId) {
     if (login === undefined) {
-      logger.log('For using script in remote mode please pass login');
+      console.log('For using script in remote mode please pass login');
 
       process.exit(1);
     }
   } else {
-    logger.log('For using script in remote mode please pass app id');
+    console.log('For using script in remote mode please pass app id');
 
     process.exit(1);
   }
@@ -147,7 +147,7 @@ function getOptionsForOfflineMode(mode: ApplicationMode.offline, options: Comman
   } = options;
 
   if (!project) {
-    logger.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
+    console.log('For using script in offline mode please pass "project" option which is path to the exported project (either zip or folder)');
 
     process.exit(1);
   }
@@ -167,25 +167,24 @@ function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options
 
   if (appId) {
     if (login === undefined) {
-      logger.log('For using script in interactive mode please pass login');
+      console.log('For using script in interactive mode please pass login');
 
       process.exit(1);
     }
 
     if (outDir === undefined) {
-      logger.log('For using script in interactive mode please pass outDir, it`s used as working directory');
+      console.log('For using script in interactive mode please pass outDir, it`s used as working directory');
 
       process.exit(1);
     }
   } else {
-    logger.log('For using script in interactive mode please pass app id');
+    console.log('For using script in interactive mode please pass app id');
 
     process.exit(1);
   }
 
   const credentials = {
     login: login,
-    // password: password,
   };
 
   const browserOptions = parseBrowserCommandLineArgs(options);
@@ -209,7 +208,7 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
   const { mode } = options;
 
   if (!mode) {
-    logger.log(`--mode is a required parameter, Please pass one of supported modes: ${getSupportedModesAsString()}`);
+    console.log(`--mode is a required parameter, Please pass one of supported modes: ${getSupportedModesAsString()}`);
 
     process.exit(1);
   } else if (
@@ -217,7 +216,7 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
     mode !== ApplicationMode.offline &&
     mode !== ApplicationMode.remote
   ) {
-    logger.log(`unknown --mode parameter: ${mode}. Please pass one of supported modes: ${getSupportedModesAsString()}`);
+    console.log(`unknown --mode parameter: ${mode}. Please pass one of supported modes: ${getSupportedModesAsString()}`);
 
     process.exit(1);
   }
