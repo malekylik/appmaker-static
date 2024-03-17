@@ -1,5 +1,9 @@
+import * as E from 'fp-ts/lib/Either';
+
 import * as commandLineArgs from 'command-line-args';
 import { logger } from './logger';
+import { readFile } from './functional/io/filesystem-io';
+
 
 const optionDefinitions = [
   { name: 'appId', type: String },
@@ -281,6 +285,44 @@ function getPassword(prompt: string, callback: (isOk: boolean, password?: string
     });
 }
 
+export type AppMakerStaticConfig = {
+  browserConfigPath: string;
+  password?: string | undefined;
+};
+
+export async function readAppMakerStaticConfig(): Promise<AppMakerStaticConfig> {
+  const password = await readFile('./appmaker-static.config.json')();
+
+  if (E.isLeft(password)) {
+    return Promise.reject(password.left);
+  }
+
+  const config = JSON.parse(password.right);
+
+  if (config !== null && typeof config === 'object') {
+    if ('browserConfigPath' in config) {
+      if (!(typeof config['browserConfigPath'] === 'string')) {
+        console.log('Config: browserConfigPath should be a string');
+        process.exit(1);
+      }
+    } else {
+      console.log('Config: browserConfigPath is a mandatory value in config');
+      process.exit(1);
+    }
+
+    if ('password' in config) {
+      if (!(typeof config['password'] === 'string')) {
+        console.log('Config: password should be a string');
+        process.exit(1);
+      }
+    }
+  } else {
+    console.log('Config should be an object');
+    process.exit(1);
+  }
+
+  return config;
+}
 
 export async function readPasswordFromUser(): Promise<string> {
   return new Promise((resolve, reject) => getPassword('Password: ', (ok, password) => { if (ok) { resolve(password!); } else { reject(); } } ));
@@ -292,7 +334,6 @@ export async function joinOptions(options: ApplicationModeOptions, getPassword: 
   }
 
   const password = await getPassword();
-  // const password = '';
 
   (options as WithPassword<OnlineApplicationModeOptions>).credentials.password = password;
 

@@ -1,10 +1,11 @@
-import { ApplicationMode, joinOptions, parseCommandLineArgs, readPasswordFromUser } from './command-line';
+import { ApplicationMode, joinOptions, parseCommandLineArgs, readAppMakerStaticConfig, readPasswordFromUser } from './command-line';
 import { handleInteractiveApplicationMode, handleOfflineApplicationMode, handleRemoteApplicationMode } from './handlers';
 import { logger } from './logger';
 
 async function run() {
   const options = parseCommandLineArgs();
   const joinedOptions = await joinOptions(options, readPasswordFromUser);
+  const config = await readAppMakerStaticConfig();
 
   logger.log(`Run with mode "${options.mode}"`);
 

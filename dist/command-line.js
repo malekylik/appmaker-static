@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.joinOptions = exports.readPasswordFromUser = exports.parseCommandLineArgs = exports.ApplicationMode = void 0;
+exports.joinOptions = exports.readPasswordFromUser = exports.readAppMakerStaticConfig = exports.parseCommandLineArgs = exports.ApplicationMode = void 0;
+const E = require("fp-ts/lib/Either");
 const commandLineArgs = require("command-line-args");
 const logger_1 = require("./logger");
+const filesystem_io_1 = require("./functional/io/filesystem-io");
 const optionDefinitions = [
     { name: 'appId', type: String },
     { name: 'mode', type: String },
@@ -176,6 +178,37 @@ function getPassword(prompt, callback) {
         }
     });
 }
+async function readAppMakerStaticConfig() {
+    const password = await (0, filesystem_io_1.readFile)('./appmaker-static.config.json')();
+    if (E.isLeft(password)) {
+        return Promise.reject(password.left);
+    }
+    const config = JSON.parse(password.right);
+    if (config !== null && typeof config === 'object') {
+        if ('browserConfigPath' in config) {
+            if (!(typeof config['browserConfigPath'] === 'string')) {
+                console.log('Config: browserConfigPath should be a string');
+                process.exit(1);
+            }
+        }
+        else {
+            console.log('Config: browserConfigPath is a mandatory value in config');
+            process.exit(1);
+        }
+        if ('password' in config) {
+            if (!(typeof config['password'] === 'string')) {
+                console.log('Config: password should be a string');
+                process.exit(1);
+            }
+        }
+    }
+    else {
+        console.log('Config should be an object');
+        process.exit(1);
+    }
+    return config;
+}
+exports.readAppMakerStaticConfig = readAppMakerStaticConfig;
 async function readPasswordFromUser() {
     return new Promise((resolve, reject) => getPassword('Password: ', (ok, password) => { if (ok) {
         resolve(password);
@@ -190,7 +223,6 @@ async function joinOptions(options, getPassword) {
         return options;
     }
     const password = await getPassword();
-    // const password = '';
     options.credentials.password = password;
     return options;
 }
