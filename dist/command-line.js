@@ -1,19 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseCommandLineArgs = exports.ApplicationMode = void 0;
+exports.joinOptions = exports.readPasswordFromUser = exports.parseCommandLineArgs = exports.ApplicationMode = void 0;
 const commandLineArgs = require("command-line-args");
 const logger_1 = require("./logger");
 const optionDefinitions = [
-    // { name: 'appId', alias: 'v', type: Boolean },
-    { name: 'mode', type: String },
     { name: 'appId', type: String },
-    // { name: 'login', type: String, multiple: true, defaultOption: true },
+    { name: 'mode', type: String },
     { name: 'login', type: String },
-    { name: 'password', type: String },
     { name: 'outDir', type: String },
     { name: 'headless', type: String },
     { name: 'project', type: String }
-    // { name: 'password', type: String },
 ];
 var ApplicationMode;
 (function (ApplicationMode) {
@@ -46,10 +42,10 @@ function getSupportedModesAsString() {
     return `"${ApplicationMode.remote}", "${ApplicationMode.offline}", "${ApplicationMode.interactive}"`;
 }
 function getOptionsForRemoteMode(mode, options) {
-    const { appId, login, password, outDir = `${__dirname}/temp`, } = options;
+    const { appId, login, outDir = `${__dirname}/temp`, } = options;
     if (appId) {
-        if (login === undefined || password === undefined) {
-            logger_1.logger.log('For using script in remote mode please pass login and password');
+        if (login === undefined) {
+            logger_1.logger.log('For using script in remote mode please pass login');
             process.exit(1);
         }
     }
@@ -59,7 +55,7 @@ function getOptionsForRemoteMode(mode, options) {
     }
     const credentials = {
         login: login,
-        password: password,
+        // password: password,
     };
     const browserOptions = parseBrowserCommandLineArgs(options);
     return ({
@@ -83,10 +79,10 @@ function getOptionsForOfflineMode(mode, options) {
     });
 }
 function getOptionsForInteractiveMode(mode, options) {
-    const { appId, login, password, outDir } = options;
+    const { appId, login, outDir } = options;
     if (appId) {
-        if (login === undefined || password === undefined) {
-            logger_1.logger.log('For using script in interactive mode please pass login and password');
+        if (login === undefined) {
+            logger_1.logger.log('For using script in interactive mode please pass login');
             process.exit(1);
         }
         if (outDir === undefined) {
@@ -100,7 +96,7 @@ function getOptionsForInteractiveMode(mode, options) {
     }
     const credentials = {
         login: login,
-        password: password,
+        // password: password,
     };
     const browserOptions = parseBrowserCommandLineArgs(options);
     return ({
@@ -135,3 +131,67 @@ function parseCommandLineArgs() {
     });
 }
 exports.parseCommandLineArgs = parseCommandLineArgs;
+var BACKSPACE = String.fromCharCode(127);
+// Probably should use readline
+// https://nodejs.org/api/readline.html
+function getPassword(prompt, callback) {
+    if (prompt) {
+        process.stdout.write(prompt);
+    }
+    var stdin = process.stdin;
+    stdin.resume();
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    var password = '';
+    stdin.on('data', function (ch) {
+        const chStr = ch.toString('utf8');
+        switch (chStr) {
+            case '\n':
+            case '\r':
+            case '\u0004':
+                // They've finished typing their password
+                process.stdout.write('\n');
+                stdin.setRawMode(false);
+                callback(true, password);
+                break;
+            case '\u0003':
+                // Ctrl-C
+                callback(false);
+                break;
+            case BACKSPACE:
+                password = password.slice(0, password.length - 1);
+                process.stdout.clearLine(0);
+                process.stdout.cursorTo(0);
+                process.stdout.write(prompt);
+                process.stdout.write(password.split('').map(function () {
+                    return '*';
+                }).join(''));
+                break;
+            default:
+                // More password characters
+                process.stdout.write('*');
+                password += ch;
+                break;
+        }
+    });
+}
+async function readPasswordFromUser() {
+    return new Promise((resolve, reject) => getPassword('Password: ', (ok, password) => { if (ok) {
+        resolve(password);
+    }
+    else {
+        reject();
+    } }));
+}
+exports.readPasswordFromUser = readPasswordFromUser;
+async function joinOptions(options, getPassword) {
+    if (options.mode === ApplicationMode.offline) {
+        return options;
+    }
+    const password = await getPassword();
+    // const password = '';
+    options.credentials.password = password;
+    return options;
+}
+exports.joinOptions = joinOptions;

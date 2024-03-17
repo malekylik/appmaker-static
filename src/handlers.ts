@@ -1,5 +1,5 @@
 const path = require('path');
-import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
+import { InteractiveMode, OfflineMode, RemoteMode, WithPassword } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp, updateScript } from './appmaker/app';
 import { PageAPI, callAppMakerApp, runInApplicationPageContext } from './appmaker-network';
@@ -235,7 +235,7 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   }
 }
 
-export async function handleRemoteApplicationMode(options: RemoteMode): Promise<void> {
+export async function handleRemoteApplicationMode(options: WithPassword<RemoteMode>): Promise<void> {
   const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
 
   const result = await validateZipProject(passedPathToExportedZip, options.outDir);
@@ -595,7 +595,7 @@ enum InteractiveModeCommands {
 export type InteractiveModeState = 'ready' | 'loading' | 'warn';
 
 // TODO: improve
-//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands
+//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands. Check (TTY and raw mode)
 //  2. close all calls when user enter "close" command
 //  3. create queue for polling command number and updating script - they may overlap
 //  4. add supporting different command, not only "changeScriptCommand", for example, command for updating view should regenerate view, command for updating model should regenerate types for models
@@ -603,7 +603,7 @@ export type InteractiveModeState = 'ready' | 'loading' | 'warn';
 //  6. add command to interact with AppMaker: delete file, deploy to instance, etc.
 //  7. add handling of error for updating scripts
 //  8. allow to open chrome in headless mode
-export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
+export async function handleInteractiveApplicationMode(options: WithPassword<InteractiveMode>): Promise<void> {
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
       let state: InteractiveModeState = 'ready';
@@ -704,7 +704,7 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
   runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
 }
 
-export async function handleInteractiveApplicationModeTest(options: InteractiveMode): Promise<void> {
+export async function handleInteractiveApplicationModeTest(options: WithPassword<InteractiveMode>): Promise<void> {
   logger.log('interactive');
 
   function run(pageAPI: PageAPI) {

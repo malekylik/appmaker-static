@@ -1,18 +1,13 @@
 import * as commandLineArgs from 'command-line-args';
 import { logger } from './logger';
 
-
 const optionDefinitions = [
-  // { name: 'appId', alias: 'v', type: Boolean },
-  { name: 'mode', type: String },
   { name: 'appId', type: String },
-  // { name: 'login', type: String, multiple: true, defaultOption: true },
+  { name: 'mode', type: String },
   { name: 'login', type: String },
-  { name: 'password', type: String },
   { name: 'outDir', type: String },
   { name: 'headless', type: String },
   { name: 'project', type: String }
-  // { name: 'password', type: String },
 ];
 
 export enum ApplicationMode {
@@ -24,7 +19,7 @@ export enum ApplicationMode {
 export interface CommandLineOptions {
   mode?: ApplicationMode;
 
-  appId?: string; login?: string; password?: string; outDir?: string;
+  appId?: string; login?: string; outDir?: string;
   project?: string;
 
   headless?: string;
@@ -34,6 +29,8 @@ export interface BrowserCommandLineOptions {
   headless: boolean | 'chrome';
 }
 
+export type WithPassword<T> = T & { credentials: { login: string; password: string; } };
+
 export type RemoteMode = {
   mode: ApplicationMode.remote;
 
@@ -41,7 +38,6 @@ export type RemoteMode = {
 
   credentials: {
     login: string;
-    password: string;
   };
 
   outDir: string;
@@ -63,7 +59,6 @@ export type InteractiveMode = {
 
   credentials: {
     login: string;
-    password: string;
   };
 
   browserOptions: BrowserCommandLineOptions;
@@ -71,10 +66,13 @@ export type InteractiveMode = {
   outDir: string;
 };
 
-export type ApplicationModeOptions =
+export type OnlineApplicationModeOptions = 
   RemoteMode
-  | OfflineMode
   | InteractiveMode;
+
+export type ApplicationModeOptions =
+  OfflineMode
+  | OnlineApplicationModeOptions;
 
 function parseBrowserCommandLineArgs(options: CommandLineOptions): BrowserCommandLineOptions {
   const { headless } = options;
@@ -104,12 +102,12 @@ function getSupportedModesAsString() {
 
 function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandLineOptions): RemoteMode {
   const {
-    appId, login, password, outDir = `${__dirname}/temp`,
+    appId, login, outDir = `${__dirname}/temp`,
   } = options;
 
   if (appId) {
-    if (login === undefined || password === undefined) {
-      logger.log('For using script in remote mode please pass login and password');
+    if (login === undefined) {
+      logger.log('For using script in remote mode please pass login');
 
       process.exit(1);
     }
@@ -121,7 +119,7 @@ function getOptionsForRemoteMode(mode: ApplicationMode.remote, options: CommandL
 
   const credentials = {
     login: login,
-    password: password,
+    // password: password,
   };
 
   const browserOptions = parseBrowserCommandLineArgs(options);
@@ -160,12 +158,12 @@ function getOptionsForOfflineMode(mode: ApplicationMode.offline, options: Comman
 
 function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options: CommandLineOptions): InteractiveMode {
   const {
-    appId, login, password, outDir
+    appId, login, outDir
   } = options;
 
   if (appId) {
-    if (login === undefined || password === undefined) {
-      logger.log('For using script in interactive mode please pass login and password');
+    if (login === undefined) {
+      logger.log('For using script in interactive mode please pass login');
 
       process.exit(1);
     }
@@ -183,7 +181,7 @@ function getOptionsForInteractiveMode(mode: ApplicationMode.interactive, options
 
   const credentials = {
     login: login,
-    password: password,
+    // password: password,
   };
 
   const browserOptions = parseBrowserCommandLineArgs(options);
@@ -230,4 +228,73 @@ export function parseCommandLineArgs(): ApplicationModeOptions {
   return ({
     mode,
   });
+}
+
+var BACKSPACE = String.fromCharCode(127);
+
+
+// Probably should use readline
+// https://nodejs.org/api/readline.html
+function getPassword(prompt: string, callback: (isOk: boolean, password?: string) => void) {
+    if (prompt) {
+      process.stdout.write(prompt);
+    }
+
+    var stdin = process.stdin;
+    stdin.resume();
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+
+    var password = '';
+    stdin.on('data', function (ch) {
+        const chStr = ch.toString('utf8');
+
+        switch (chStr) {
+        case '\n':
+        case '\r':
+        case '\u0004':
+            // They've finished typing their password
+            process.stdout.write('\n');
+            stdin.setRawMode(false);
+            callback(true, password);
+            break;
+        case '\u0003':
+            // Ctrl-C
+            callback(false);
+            break;
+        case BACKSPACE:
+            password = password.slice(0, password.length - 1);
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+            process.stdout.write(prompt);
+            process.stdout.write(password.split('').map(function () {
+              return '*';
+            }).join(''));
+            break;
+        default:
+            // More password characters
+            process.stdout.write('*');
+            password += ch;
+            break;
+        }
+    });
+}
+
+
+export async function readPasswordFromUser(): Promise<string> {
+  return new Promise((resolve, reject) => getPassword('Password: ', (ok, password) => { if (ok) { resolve(password!); } else { reject(); } } ));
+}
+
+export async function joinOptions(options: ApplicationModeOptions, getPassword: () => Promise<string>): Promise<WithPassword<OnlineApplicationModeOptions> | OfflineMode> {
+  if (options.mode === ApplicationMode.offline) {
+    return options;
+  }
+
+  const password = await getPassword();
+  // const password = '';
+
+  (options as WithPassword<OnlineApplicationModeOptions>).credentials.password = password;
+
+  return options as WithPassword<OnlineApplicationModeOptions>;
 }
