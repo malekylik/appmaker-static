@@ -8,7 +8,14 @@ const { promisify } = require('util');
 
 const writeFile = promisify(oldWriteFile);
 
-export const APPMAKER_URL_API = 'https://appmaker.googleplex.com';
+export enum AppMakerURLAPIs {
+  base = 'https://appmaker.googleplex.com',
+
+  retriveCommands = `${base}/_api/editor/application_editor/v1/retrieve_commands`,
+  executeCommand = `${base}/_api/editor/application_editor/v1/execute_command`,
+
+  exportProject = `${base}/_am/exportApp`,
+}
 
 // Status Code: 302 means need to relogin
 // POST https://spotlight-dev-sprabahar.googleplex.com/_api/base/app_data/v1/query_records 412 - reload required
@@ -202,7 +209,7 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
       body: JSON.stringify(body),
     };
 
-    return fetch(`${apiURL}/_api/editor/application_editor/v1/retrieve_commands`, payload)
+    return fetch(apiURL, payload)
     .then(r => r.body)
     .then((rb) => {
       const reader = rb!.getReader();
@@ -238,7 +245,7 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, APPMAKER_URL_API, xsrfToken, appKey, currentCommandNumber) as string;
+  }, AppMakerURLAPIs.retriveCommands, xsrfToken, appKey, currentCommandNumber) as string;
 
   const parsedRes: RequestResponse | RequestError = JSON.parse(res);
 
@@ -273,7 +280,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
        body: _body,
     };
   
-    return fetch(`${apiURL}/_api/editor/application_editor/v1/execute_command`, payload)
+    return fetch(apiURL, payload)
     .then(r => r.body)
     .then((rb) => {
       const reader = rb!.getReader();
@@ -309,7 +316,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, APPMAKER_URL_API, xsrfToken, JSON.stringify(body)) as string;
+  }, AppMakerURLAPIs.executeCommand, xsrfToken, JSON.stringify(body)) as string;
 
   type RequestResponse = { response: Array<{ changeScriptCommand: {
     key: { applicationKey: string; localKey: string; };
@@ -333,7 +340,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
  * @returns result of exported AppMaker project as a string
  */
 export function exportProject (apiURL: string, applicationId: string, xsrfToken: string): Promise<string> {
-  return fetch(`${apiURL}/_am/exportApp`, {
+  return fetch(apiURL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
     body: (`applicationId=${applicationId}&xsrfToken=${xsrfToken}&revisionId=`) })

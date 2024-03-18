@@ -4,7 +4,7 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
-import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, retrieveCommands, RequestResponse, RequestError, changeScriptFile, APPMAKER_URL_API } from './appmaker-network-actions';
+import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, retrieveCommands, RequestResponse, RequestError, changeScriptFile, AppMakerURLAPIs } from './appmaker-network-actions';
 
 import * as O from 'fp-ts/lib/Option';
 import { logger } from './logger';
@@ -109,7 +109,7 @@ export async function app(page: puppeteer.Page, applicationId: string) {
   
   logger.log('try to export project');
 
-  const appZipText = await page.evaluate(exportProject, APPMAKER_URL_API, applicationId, xsrfToken);
+  const appZipText = await page.evaluate(exportProject, AppMakerURLAPIs.exportProject, applicationId, xsrfToken);
 
   const appZipPath = __dirname + '/app.zip';
 

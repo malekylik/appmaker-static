@@ -1,12 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.tryToGetCommand = exports.tryToGetCommandName = exports.isRequestError = exports.isRequestAddComponentInfoCommand = exports.isRequestChangeScriptCommand = exports.isCommandLikeResponse = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = exports.APPMAKER_URL_API = void 0;
+exports.takeScreenshoot = exports.exportProject = exports.changeScriptFile = exports.retrieveCommands = exports.tryToGetCommand = exports.tryToGetCommandName = exports.isRequestError = exports.isRequestAddComponentInfoCommand = exports.isRequestChangeScriptCommand = exports.isCommandLikeResponse = exports.isRequestResponse = exports.getCommandNumberFromApp = exports.getXSRFToken = exports.getClientEnvironment = exports.AppMakerURLAPIs = void 0;
 const function_1 = require("fp-ts/lib/function");
 const O = require("fp-ts/lib/Option");
 const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
-exports.APPMAKER_URL_API = 'https://appmaker.googleplex.com';
+var AppMakerURLAPIs;
+(function (AppMakerURLAPIs) {
+    AppMakerURLAPIs["base"] = "https://appmaker.googleplex.com";
+    AppMakerURLAPIs["retriveCommands"] = "https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands";
+    AppMakerURLAPIs["executeCommand"] = "https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command";
+    AppMakerURLAPIs["exportProject"] = "https://appmaker.googleplex.com/_am/exportApp";
+})(AppMakerURLAPIs || (exports.AppMakerURLAPIs = AppMakerURLAPIs = {}));
 // Status Code: 302 means need to relogin
 // POST https://spotlight-dev-sprabahar.googleplex.com/_api/base/app_data/v1/query_records 412 - reload required
 function toUtfStr(str) {
@@ -134,7 +140,7 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
             },
             body: JSON.stringify(body),
         };
-        return fetch(`${apiURL}/_api/editor/application_editor/v1/retrieve_commands`, payload)
+        return fetch(apiURL, payload)
             .then(r => r.body)
             .then((rb) => {
             const reader = rb.getReader();
@@ -168,7 +174,7 @@ async function retrieveCommands(page, xsrfToken, appKey, currentCommandNumber) {
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => reject('Error occurred while reading binary string');
         }));
-    }, exports.APPMAKER_URL_API, xsrfToken, appKey, currentCommandNumber);
+    }, AppMakerURLAPIs.retriveCommands, xsrfToken, appKey, currentCommandNumber);
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }
@@ -202,7 +208,7 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
             },
             body: _body,
         };
-        return fetch(`${apiURL}/_api/editor/application_editor/v1/execute_command`, payload)
+        return fetch(apiURL, payload)
             .then(r => r.body)
             .then((rb) => {
             const reader = rb.getReader();
@@ -236,7 +242,7 @@ async function changeScriptFile(page, xsrfToken, appId, login, fileKey, commandN
             reader.onload = () => resolve(reader.result);
             reader.onerror = () => reject('Error occurred while reading binary string');
         }));
-    }, exports.APPMAKER_URL_API, xsrfToken, JSON.stringify(body));
+    }, AppMakerURLAPIs.executeCommand, xsrfToken, JSON.stringify(body));
     const parsedRes = JSON.parse(res);
     return parsedRes;
 }
@@ -247,7 +253,7 @@ exports.changeScriptFile = changeScriptFile;
  * @returns result of exported AppMaker project as a string
  */
 function exportProject(apiURL, applicationId, xsrfToken) {
-    return fetch(`${apiURL}/_am/exportApp`, {
+    return fetch(apiURL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
         body: (`applicationId=${applicationId}&xsrfToken=${xsrfToken}&revisionId=`)

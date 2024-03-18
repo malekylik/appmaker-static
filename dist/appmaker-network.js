@@ -87,7 +87,7 @@ async function app(page, applicationId) {
     const xsrfToken = await (0, appmaker_network_actions_1.getXSRFToken)(page);
     logger_1.logger.log('get xsrf token', xsrfToken);
     logger_1.logger.log('try to export project');
-    const appZipText = await page.evaluate(appmaker_network_actions_1.exportProject, appmaker_network_actions_1.APPMAKER_URL_API, applicationId, xsrfToken);
+    const appZipText = await page.evaluate(appmaker_network_actions_1.exportProject, appmaker_network_actions_1.AppMakerURLAPIs.exportProject, applicationId, xsrfToken);
     const appZipPath = __dirname + '/app.zip';
     logger_1.logger.log(`exporting done`);
     logger_1.logger.log(`writing to ${appZipPath}`);
