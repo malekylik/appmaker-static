@@ -5,8 +5,8 @@ const handlers_1 = require("./handlers");
 const logger_1 = require("./logger");
 async function run() {
     const options = (0, command_line_1.parseCommandLineArgs)();
-    const joinedOptions = await (0, command_line_1.joinOptions)(options, command_line_1.readPasswordFromUser);
     const config = await (0, command_line_1.readAppMakerStaticConfig)();
+    const joinedOptions = await (0, command_line_1.joinOptions)(options, config, command_line_1.readPasswordFromUser);
     logger_1.logger.log(`Run with mode "${options.mode}"`);
     try {
         if (joinedOptions.mode === command_line_1.ApplicationMode.remote) {

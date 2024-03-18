@@ -4,8 +4,8 @@ import { logger } from './logger';
 
 async function run() {
   const options = parseCommandLineArgs();
-  const joinedOptions = await joinOptions(options, readPasswordFromUser);
   const config = await readAppMakerStaticConfig();
+  const joinedOptions = await joinOptions(options, config, readPasswordFromUser);
 
   logger.log(`Run with mode "${options.mode}"`);
 

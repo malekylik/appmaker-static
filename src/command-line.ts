@@ -33,7 +33,12 @@ export interface BrowserCommandLineOptions {
   headless: boolean | 'chrome';
 }
 
+export type BrowserConfigOptions = {
+  browserConfigPath: string;
+}
+
 export type WithPassword<T> = T & { credentials: { login: string; password: string; } };
+export type WithBrowserConfigOptions<T> = T & { browserConfigOptions: BrowserConfigOptions };
 
 export type RemoteMode = {
   mode: ApplicationMode.remote;
@@ -327,14 +332,18 @@ export async function readPasswordFromUser(): Promise<string> {
   return new Promise((resolve, reject) => getPassword('Password: ', (ok, password) => { if (ok) { resolve(password!); } else { reject(); } } ));
 }
 
-export async function joinOptions(options: ApplicationModeOptions, getPassword: () => Promise<string>): Promise<WithPassword<OnlineApplicationModeOptions> | OfflineMode> {
+export async function joinOptions(options: ApplicationModeOptions, config: AppMakerStaticConfig, getPassword: () => Promise<string>): Promise<WithBrowserConfigOptions<WithPassword<OnlineApplicationModeOptions> | OfflineMode>> {
+  (options as WithBrowserConfigOptions<ApplicationModeOptions>).browserConfigOptions = {
+    browserConfigPath: config.browserConfigPath,
+  };
+
   if (options.mode === ApplicationMode.offline) {
-    return options;
+    return options as any;
   }
 
-  const password = await getPassword();
+  const password = config.password || await getPassword();
 
   (options as WithPassword<OnlineApplicationModeOptions>).credentials.password = password;
 
-  return options as WithPassword<OnlineApplicationModeOptions>;
+  return options as any;
 }

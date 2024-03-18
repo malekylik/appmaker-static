@@ -177,7 +177,7 @@ async function handleOfflineApplicationMode(options) {
 }
 exports.handleOfflineApplicationMode = handleOfflineApplicationMode;
 async function handleRemoteApplicationMode(options) {
-    const passedPathToExportedZip = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions);
+    const passedPathToExportedZip = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions);
     const result = await validateZipProject(passedPathToExportedZip, options.outDir);
     await postRemoteZipActionsHandler(passedPathToExportedZip, result.path, options.outDir);
     if (result.code !== 0) {
@@ -495,7 +495,7 @@ async function handleInteractiveApplicationMode(options) {
             initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir, state);
         });
     }
-    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);
+    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 exports.handleInteractiveApplicationMode = handleInteractiveApplicationMode;
 async function handleInteractiveApplicationModeTest(options) {
@@ -529,6 +529,6 @@ async function handleInteractiveApplicationModeTest(options) {
             resolve(null);
         });
     }
-    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);
+    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 exports.handleInteractiveApplicationModeTest = handleInteractiveApplicationModeTest;

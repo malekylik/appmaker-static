@@ -1,5 +1,5 @@
 const path = require('path');
-import { InteractiveMode, OfflineMode, RemoteMode, WithPassword } from './command-line';
+import { InteractiveMode, OfflineMode, RemoteMode, WithBrowserConfigOptions, WithPassword } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp, updateScript } from './appmaker/app';
 import { PageAPI, callAppMakerApp, runInApplicationPageContext } from './appmaker-network';
@@ -235,8 +235,8 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   }
 }
 
-export async function handleRemoteApplicationMode(options: WithPassword<RemoteMode>): Promise<void> {
-  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
+export async function handleRemoteApplicationMode(options: WithBrowserConfigOptions<WithPassword<RemoteMode>>): Promise<void> {
+  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions);
 
   const result = await validateZipProject(passedPathToExportedZip, options.outDir);
 
@@ -603,7 +603,7 @@ export type InteractiveModeState = 'ready' | 'loading' | 'warn';
 //  6. add command to interact with AppMaker: delete file, deploy to instance, etc.
 //  7. add handling of error for updating scripts
 //  8. allow to open chrome in headless mode
-export async function handleInteractiveApplicationMode(options: WithPassword<InteractiveMode>): Promise<void> {
+export async function handleInteractiveApplicationMode(options: WithBrowserConfigOptions<WithPassword<InteractiveMode>>): Promise<void> {
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
       let state: InteractiveModeState = 'ready';
@@ -701,10 +701,10 @@ export async function handleInteractiveApplicationMode(options: WithPassword<Int
     });
   }
 
-  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
+  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 
-export async function handleInteractiveApplicationModeTest(options: WithPassword<InteractiveMode>): Promise<void> {
+export async function handleInteractiveApplicationModeTest(options: WithBrowserConfigOptions<WithPassword<InteractiveMode>>): Promise<void> {
   logger.log('interactive');
 
   function run(pageAPI: PageAPI) {
@@ -780,5 +780,5 @@ export async function handleInteractiveApplicationModeTest(options: WithPassword
     });
   }
 
-  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
+  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }

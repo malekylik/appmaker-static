@@ -217,11 +217,14 @@ async function readPasswordFromUser() {
     } }));
 }
 exports.readPasswordFromUser = readPasswordFromUser;
-async function joinOptions(options, getPassword) {
+async function joinOptions(options, config, getPassword) {
+    options.browserConfigOptions = {
+        browserConfigPath: config.browserConfigPath,
+    };
     if (options.mode === ApplicationMode.offline) {
         return options;
     }
-    const password = await getPassword();
+    const password = config.password || await getPassword();
     options.credentials.password = password;
     return options;
 }
