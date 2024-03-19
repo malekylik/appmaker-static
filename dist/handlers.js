@@ -76,6 +76,7 @@ async function createAppMakerApplication(pathToUnzipProjectFolder) {
         (0, io_1.getViewsNames)(pathToUnzipProjectFolder),
     ]);
     const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
+        // TODO: check
         (0, io_1.readAppMakerScripts)(pathToUnzipProjectFolder, scriptsNames),
         (0, io_1.readAppMakerModels)(pathToUnzipProjectFolder, modelsNames),
         (0, io_1.readAppMakerViews)(pathToUnzipProjectFolder, viewsNames),
@@ -273,13 +274,19 @@ function getFuncToSyncWorkspace(api) {
     let commangFromServerPr = null;
     return async function checkForCommandNumber() {
         try {
-            if (commangFromServerPr !== null) {
+            if (commangFromServerPr !== null || repl_scheduler_1.replScheduler.getJobsCount() !== 0) {
                 return;
             }
             // TODO: drop this request when close method called
             commangFromServerPr = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
             const _commandNumber = await commangFromServerPr;
             commangFromServerPr = null;
+            // Check for race condition
+            // When we check for updating during the script updating by the user
+            // TODO: think about better syncing
+            if (repl_scheduler_1.replScheduler.getJobsCount() !== 0) {
+                return;
+            }
             if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestResponse)(_commandNumber.value)) {
                 const res = (0, function_1.pipe)(_commandNumber.value, response => response.response.map(commandResponse => {
                     const commandName = (0, appmaker_network_actions_1.tryToGetCommandName)(commandResponse);
@@ -343,6 +350,7 @@ function watchProjectFiles(folder, api) {
                             scriptName: filenameObj.name,
                             run: () => {
                                 logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
+                                // TODO: for some reason sometime its empty
                                 if (newContent === '') {
                                     logger_1.logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`);
                                 }

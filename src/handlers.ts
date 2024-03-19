@@ -96,6 +96,7 @@ async function createAppMakerApplication(pathToUnzipProjectFolder: string): Prom
   ]);
 
   const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
+    // TODO: check
     readAppMakerScripts(pathToUnzipProjectFolder, scriptsNames),
     readAppMakerModels(pathToUnzipProjectFolder, modelsNames),
     readAppMakerViews(pathToUnzipProjectFolder, viewsNames),
@@ -395,7 +396,7 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
 
   return async function checkForCommandNumber() {
     try {
-      if (commangFromServerPr !== null) {
+      if (commangFromServerPr !== null || replScheduler.getJobsCount() !== 0) {
         return;
       }
 
@@ -411,6 +412,13 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
       const _commandNumber = await commangFromServerPr;
 
       commangFromServerPr = null;
+
+      // Check for race condition
+      // When we check for updating during the script updating by the user
+      // TODO: think about better syncing
+      if (replScheduler.getJobsCount() !== 0) {
+        return;
+      }
 
       if (O.isSome(_commandNumber) && isRequestResponse(_commandNumber.value)) {
         const res = pipe(
@@ -489,6 +497,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                 run: () => {
                   logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
 
+                  // TODO: for some reason sometime its empty
                   if (newContent === '') {
                     logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`)
                   }

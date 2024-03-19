@@ -38,40 +38,49 @@ async function readLinterConfig() {
 }
 exports.readLinterConfig = readLinterConfig;
 function getScriptsNames(pathToProject) {
-    return readdir(getPathToScrips(pathToProject));
+    return readdir(getPathToScrips(pathToProject))
+        .catch(() => []);
 }
 exports.getScriptsNames = getScriptsNames;
 function getModelsNames(pathToProject) {
-    return readdir(getPathToModels(pathToProject));
+    return readdir(getPathToModels(pathToProject))
+        .catch(() => []);
 }
 exports.getModelsNames = getModelsNames;
 function getViewsNames(pathToProject) {
-    return readdir(getPathToViews(pathToProject));
+    return readdir(getPathToViews(pathToProject))
+        .catch(() => []);
 }
 exports.getViewsNames = getViewsNames;
 async function readAppMakerSingleScript(pathToProject, scriptName) {
     const path = `${getPathToScrips(pathToProject)}/${scriptName}`;
-    const scriptXML = await readFile(path, 'utf-8');
-    const options = {
-        ignoreAttributes: false,
-        attributeNamePrefix: '',
-    };
-    const parser = new XMLParser(options);
-    let jsonObj = parser.parse(scriptXML);
-    // if content contains only a number, for example, the parser treats it like a JS number, instead of a JS string
-    if (jsonObj.script['#text']) {
-        jsonObj.script['#text'] = String(jsonObj.script['#text']);
+    try {
+        const scriptXML = await readFile(path, 'utf-8');
+        const options = {
+            ignoreAttributes: false,
+            attributeNamePrefix: '',
+        };
+        const parser = new XMLParser(options);
+        let jsonObj = parser.parse(scriptXML);
+        // if content contains only a number, for example, the parser treats it like a JS number, instead of a JS string
+        if (jsonObj.script['#text']) {
+            jsonObj.script['#text'] = String(jsonObj.script['#text']);
+        }
+        const content = {
+            name: scriptName,
+            path: path,
+            file: jsonObj,
+        };
+        return content;
     }
-    const content = {
-        name: scriptName,
-        path: path,
-        file: jsonObj,
-    };
-    return content;
+    catch (e) {
+        return null;
+    }
 }
 exports.readAppMakerSingleScript = readAppMakerSingleScript;
 async function readAppMakerScripts(pathToProject, scriptsNames) {
-    const scriptFiles = await Promise.all(scriptsNames.map(name => readAppMakerSingleScript(pathToProject, name)));
+    const scriptFiles = (await Promise.all(scriptsNames.map(name => readAppMakerSingleScript(pathToProject, name))))
+        .filter((v) => v !== null);
     return scriptFiles;
 }
 exports.readAppMakerScripts = readAppMakerScripts;

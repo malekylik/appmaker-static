@@ -73,8 +73,10 @@ function generateTypeDeclarationFile(views, viewFragments, models, scripts) {
                 return newNode;
             }
             if (typeName === TypeToGenerate.ServerScriptNames) {
-                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], ts.factory.createUnionTypeNode(serverScriptsWithExports
-                    .map(script => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(script.name)))));
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], serverScriptsWithExports.length > 0
+                    ? ts.factory.createUnionTypeNode(serverScriptsWithExports
+                        .map(script => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(script.name))))
+                    : ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword));
                 return newNode;
             }
             if (typeName === TypeToGenerate.ServerScriptExportedNamesMap) {
@@ -170,7 +172,9 @@ function generateDataserviceSourceFile(models) {
         if (ts.isTypeAliasDeclaration(node)) {
             const typeName = node.name.escapedText;
             if (typeName === TypeToGenerate.ModelNames) {
-                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name)))));
+                const newNode = ts.factory.createTypeAliasDeclaration([ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [], models.length > 0
+                    ? ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name))))
+                    : ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword));
                 return newNode;
             }
             if (typeName === TypeToGenerate.ModelNamesToModelTypeMap) {

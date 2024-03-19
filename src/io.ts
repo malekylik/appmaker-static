@@ -48,49 +48,56 @@ export async function readLinterConfig(): Promise<Linter.Config<Linter.RulesReco
 }
 
 export function getScriptsNames(pathToProject: string): Promise<Array<string>> {
-  return readdir(getPathToScrips(pathToProject));
+  return readdir(getPathToScrips(pathToProject))
+    .catch(() => []);
 }
 
 export function getModelsNames(pathToProject: string): Promise<Array<string>> {
-  return readdir(getPathToModels(pathToProject));
+  return readdir(getPathToModels(pathToProject))
+    .catch(() => []);
 }
 
 export function getViewsNames(pathToProject: string): Promise<Array<string>> {
-  return readdir(getPathToViews(pathToProject));
+  return readdir(getPathToViews(pathToProject))
+    .catch(() => []);
 }
 
 export type AppMakerScriptContent = { name: string; path: string; file: ScriptFile };
 export type AppMakerScriptFolderContent = Array<AppMakerScriptContent>;
 
-export async function readAppMakerSingleScript(pathToProject: string, scriptName: string): Promise<AppMakerScriptContent> {
+export async function readAppMakerSingleScript(pathToProject: string, scriptName: string): Promise<AppMakerScriptContent | null> {
   const path = `${getPathToScrips(pathToProject)}/${scriptName}`;
-  const scriptXML = await readFile(path, 'utf-8');
+  try {
+    const scriptXML = await readFile(path, 'utf-8');
 
+    const options = {
+      ignoreAttributes : false,
+      attributeNamePrefix: '',
+    };
 
-  const options = {
-    ignoreAttributes : false,
-    attributeNamePrefix: '',
-  };
+    const parser = new XMLParser(options);
+    let jsonObj: ScriptFile = parser.parse(scriptXML);
 
-  const parser = new XMLParser(options);
-  let jsonObj: ScriptFile = parser.parse(scriptXML);
+    // if content contains only a number, for example, the parser treats it like a JS number, instead of a JS string
+    if (jsonObj.script['#text']) {
+      jsonObj.script['#text'] = String(jsonObj.script['#text']);
+    }
 
-  // if content contains only a number, for example, the parser treats it like a JS number, instead of a JS string
-  if (jsonObj.script['#text']) {
-    jsonObj.script['#text'] = String(jsonObj.script['#text']);
+    const content: AppMakerScriptContent = {
+      name: scriptName,
+      path: path,
+      file: jsonObj,
+    };
+
+    return content;
+  } catch (e) {
+    return null;
   }
-
-  const content: AppMakerScriptContent = {
-    name: scriptName,
-    path: path,
-    file: jsonObj,
-  };
-
-  return content;
 }
 
 export async function readAppMakerScripts(pathToProject: string, scriptsNames: Array<string>): Promise<AppMakerScriptFolderContent> {
-  const scriptFiles: AppMakerScriptFolderContent = await Promise.all(scriptsNames.map(name => readAppMakerSingleScript(pathToProject, name)));
+  const scriptFiles: AppMakerScriptFolderContent = (await Promise.all(scriptsNames.map(name => readAppMakerSingleScript(pathToProject, name))))
+    .filter((v): v is AppMakerScriptContent => v !== null);
 
   return scriptFiles;
 }
