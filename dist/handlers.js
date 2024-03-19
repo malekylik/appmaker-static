@@ -76,6 +76,7 @@ async function createAppMakerApplication(pathToUnzipProjectFolder) {
         (0, io_1.getViewsNames)(pathToUnzipProjectFolder),
     ]);
     const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
+        // TODO: check
         (0, io_1.readAppMakerScripts)(pathToUnzipProjectFolder, scriptsNames),
         (0, io_1.readAppMakerModels)(pathToUnzipProjectFolder, modelsNames),
         (0, io_1.readAppMakerViews)(pathToUnzipProjectFolder, viewsNames),
@@ -136,8 +137,8 @@ async function unzipProject(passedPath) {
         return pathToProject;
     }
     catch (e) {
-        logger_1.logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-        logger_1.logger.log(e);
+        console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+        console.log(e);
         process.exit(1);
     }
 }
@@ -155,12 +156,12 @@ async function handleOfflineApplicationMode(options) {
         pathStat = await stat(options.project);
     }
     catch {
-        logger_1.logger.log(`Couldn't find path: ${options.project}`);
+        console.log(`Couldn't find path: ${options.project}`);
         process.exit(1);
     }
     const isZip = path.extname(options.project) === '.zip';
     if (!pathStat.isDirectory() && !isZip) {
-        logger_1.logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+        console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
         process.exit(1);
     }
     let result = null;
@@ -177,7 +178,7 @@ async function handleOfflineApplicationMode(options) {
 }
 exports.handleOfflineApplicationMode = handleOfflineApplicationMode;
 async function handleRemoteApplicationMode(options) {
-    const passedPathToExportedZip = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions);
+    const passedPathToExportedZip = await (0, appmaker_network_1.callAppMakerApp)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions);
     const result = await validateZipProject(passedPathToExportedZip, options.outDir);
     await postRemoteZipActionsHandler(passedPathToExportedZip, result.path, options.outDir);
     if (result.code !== 0) {
@@ -273,13 +274,19 @@ function getFuncToSyncWorkspace(api) {
     let commangFromServerPr = null;
     return async function checkForCommandNumber() {
         try {
-            if (commangFromServerPr !== null) {
+            if (commangFromServerPr !== null || repl_scheduler_1.replScheduler.getJobsCount() !== 0) {
                 return;
             }
             // TODO: drop this request when close method called
             commangFromServerPr = (0, function_1.pipe)(api.getXsrfToken(), O.match(() => Promise.resolve(O.none), t => (0, function_1.pipe)(api.getCommandNumber(), O.match(() => Promise.resolve(O.none), c => api.getPageAPI().getCommandNumberFromServer(t, api.getOptions().appId, c)))));
             const _commandNumber = await commangFromServerPr;
             commangFromServerPr = null;
+            // Check for race condition
+            // When we check for updating during the script updating by the user
+            // TODO: think about better syncing
+            if (repl_scheduler_1.replScheduler.getJobsCount() !== 0) {
+                return;
+            }
             if (O.isSome(_commandNumber) && (0, appmaker_network_actions_1.isRequestResponse)(_commandNumber.value)) {
                 const res = (0, function_1.pipe)(_commandNumber.value, response => response.response.map(commandResponse => {
                     const commandName = (0, appmaker_network_actions_1.tryToGetCommandName)(commandResponse);
@@ -343,6 +350,7 @@ function watchProjectFiles(folder, api) {
                             scriptName: filenameObj.name,
                             run: () => {
                                 logger_1.logger.log(`Updating file: ${(0, repl_logger_1.colorPath)(filenameObj.name)}`);
+                                // TODO: for some reason sometime its empty
                                 if (newContent === '') {
                                     logger_1.logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`);
                                 }
@@ -412,7 +420,7 @@ var InteractiveModeCommands;
     InteractiveModeCommands["update"] = "update";
 })(InteractiveModeCommands || (InteractiveModeCommands = {}));
 // TODO: improve
-//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands
+//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands. Check (TTY and raw mode)
 //  2. close all calls when user enter "close" command
 //  3. create queue for polling command number and updating script - they may overlap
 //  4. add supporting different command, not only "changeScriptCommand", for example, command for updating view should regenerate view, command for updating model should regenerate types for models
@@ -495,7 +503,7 @@ async function handleInteractiveApplicationMode(options) {
             initConsoleForInteractiveMode(xsrfToken, commandNumber, options.outDir, state);
         });
     }
-    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);
+    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 exports.handleInteractiveApplicationMode = handleInteractiveApplicationMode;
 async function handleInteractiveApplicationModeTest(options) {
@@ -529,6 +537,6 @@ async function handleInteractiveApplicationModeTest(options) {
             resolve(null);
         });
     }
-    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, run);
+    (0, appmaker_network_1.runInApplicationPageContext)(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 exports.handleInteractiveApplicationModeTest = handleInteractiveApplicationModeTest;

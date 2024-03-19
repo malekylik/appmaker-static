@@ -8,6 +8,15 @@ const { promisify } = require('util');
 
 const writeFile = promisify(oldWriteFile);
 
+export enum AppMakerURLAPIs {
+  base = 'https://appmaker.googleplex.com',
+
+  retriveCommands = `${base}/_api/editor/application_editor/v1/retrieve_commands`,
+  executeCommand = `${base}/_api/editor/application_editor/v1/execute_command`,
+
+  exportProject = `${base}/_am/exportApp`,
+}
+
 // Status Code: 302 means need to relogin
 // POST https://spotlight-dev-sprabahar.googleplex.com/_api/base/app_data/v1/query_records 412 - reload required
 
@@ -185,7 +194,7 @@ export type RequestResponse = { response: Array<AddComponentInfoCommand | Change
 export type RequestError = { type: string; message: string; unknownException?: { exceptionTypeName: 'UNKNOWN_EXCEPTION' } };
 
 export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, appKey: string, currentCommandNumber: string) {
-  const res = await page.evaluate((xsrfToken, _appKey, _commandNumber) => {
+  const res = await page.evaluate((apiURL, xsrfToken, _appKey, _commandNumber) => {
     const body = {
       "1": _appKey,
       "2": _commandNumber
@@ -200,7 +209,7 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
       body: JSON.stringify(body),
     };
 
-    return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/retrieve_commands', payload)
+    return fetch(apiURL, payload)
     .then(r => r.body)
     .then((rb) => {
       const reader = rb!.getReader();
@@ -236,7 +245,7 @@ export async function retrieveCommands(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, xsrfToken, appKey, currentCommandNumber) as string;
+  }, AppMakerURLAPIs.retriveCommands, xsrfToken, appKey, currentCommandNumber) as string;
 
   const parsedRes: RequestResponse | RequestError = JSON.parse(res);
 
@@ -261,7 +270,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
     "3": commandNumber
   };
 
-  const res = await page.evaluate((_xsrfToken, _body) => {
+  const res = await page.evaluate((apiURL, _xsrfToken, _body) => {
     const payload = {
       method: 'POST',
        headers: {
@@ -271,7 +280,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
        body: _body,
     };
   
-    return fetch('https://appmaker.googleplex.com/_api/editor/application_editor/v1/execute_command', payload)
+    return fetch(apiURL, payload)
     .then(r => r.body)
     .then((rb) => {
       const reader = rb!.getReader();
@@ -307,7 +316,7 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject('Error occurred while reading binary string');
     }));
-  }, xsrfToken, JSON.stringify(body)) as string;
+  }, AppMakerURLAPIs.executeCommand, xsrfToken, JSON.stringify(body)) as string;
 
   type RequestResponse = { response: Array<{ changeScriptCommand: {
     key: { applicationKey: string; localKey: string; };
@@ -330,8 +339,8 @@ export async function changeScriptFile(page: puppeteer.Page, xsrfToken: string, 
  * @param xsrfToken
  * @returns result of exported AppMaker project as a string
  */
-export function exportProject (applicationId: string, xsrfToken: string): Promise<string> {
-  return fetch('https://appmaker.googleplex.com/_am/exportApp', {
+export function exportProject (apiURL: string, applicationId: string, xsrfToken: string): Promise<string> {
+  return fetch(apiURL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
     body: (`applicationId=${applicationId}&xsrfToken=${xsrfToken}&revisionId=`) })

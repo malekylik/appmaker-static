@@ -4,15 +4,16 @@ const { writeFile: oldWriteFile } = require('fs');
 const { promisify } = require('util');
 const writeFile = promisify(oldWriteFile);
 
-import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, retrieveCommands, RequestResponse, RequestError, changeScriptFile } from './appmaker-network-actions';
+import { getXSRFToken, exportProject, takeScreenshoot, getCommandNumberFromApp, retrieveCommands, RequestResponse, RequestError, changeScriptFile, AppMakerURLAPIs } from './appmaker-network-actions';
 
 import * as O from 'fp-ts/lib/Option';
 import { logger } from './logger';
+import { BrowserConfigOptions, WithBrowserConfigOptions } from './command-line';
 
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
 
-export async function openBrowser(options: { headless?: boolean | 'chrome' } = {}): Promise<puppeteer.Browser> {
+export async function openBrowser(options: { headless?: boolean | 'chrome' } = {}, configOptions: BrowserConfigOptions): Promise<puppeteer.Browser> {
   const headless = options.headless ?? 'chrome';
 
   const DEFAULT_ARGS: Array<string> = [
@@ -28,7 +29,7 @@ export async function openBrowser(options: { headless?: boolean | 'chrome' } = {
     ignoreDefaultArgs: DEFAULT_ARGS,
     executablePath: '/usr/bin/google-chrome',
     // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
-    userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
+    userDataDir: configOptions.browserConfigPath
   });
 }
 
@@ -108,7 +109,7 @@ export async function app(page: puppeteer.Page, applicationId: string) {
   
   logger.log('try to export project');
 
-  const appZipText = await page.evaluate(exportProject, applicationId, xsrfToken);
+  const appZipText = await page.evaluate(exportProject, AppMakerURLAPIs.exportProject, applicationId, xsrfToken);
 
   const appZipPath = __dirname + '/app.zip';
 
@@ -161,8 +162,8 @@ export async function initBrowserWithAppMakerApp(browser: puppeteer.Browser, app
   }
 }
 
-export async function callAppMakerApp(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}) {
-  const browser = await openBrowser(options);
+export async function callAppMakerApp(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' } = {}, configOptions: BrowserConfigOptions) {
+  const browser = await openBrowser(options, configOptions);
 
   let page = null;
 
@@ -205,8 +206,8 @@ export interface PageAPI {
   close(): Promise<O.Some<void>>;
 }
 
-export async function runInApplicationPageContext(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' }, callback: (pageAPI: PageAPI) => Promise<unknown>) {
-  const browser = await openBrowser(options);
+export async function runInApplicationPageContext(applicationId: string, credentials: { login: string; password: string; }, options: { headless?: boolean | 'chrome' }, configOptions: BrowserConfigOptions, callback: (pageAPI: PageAPI) => Promise<unknown>) {
+  const browser = await openBrowser(options, configOptions);
 
   let page: puppeteer.Page | null = null;
 

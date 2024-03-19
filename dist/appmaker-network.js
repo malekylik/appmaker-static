@@ -10,7 +10,7 @@ const O = require("fp-ts/lib/Option");
 const logger_1 = require("./logger");
 const editAppMakerPageUrl = 'appmaker.googleplex.com/edit';
 const authPageUrl = 'login.corp.google.com';
-async function openBrowser(options = {}) {
+async function openBrowser(options = {}, configOptions) {
     const headless = options.headless ?? 'chrome';
     const DEFAULT_ARGS = [
         '--disable-background-networking',
@@ -23,7 +23,7 @@ async function openBrowser(options = {}) {
         ignoreDefaultArgs: DEFAULT_ARGS,
         executablePath: '/usr/bin/google-chrome',
         // if the browser was not properly close, next run will probably end up with an error. Deleting this folder solve the error
-        userDataDir: '/usr/local/google/home/kalinouski/Documents/headless_chrome'
+        userDataDir: configOptions.browserConfigPath
     });
 }
 exports.openBrowser = openBrowser;
@@ -87,7 +87,7 @@ async function app(page, applicationId) {
     const xsrfToken = await (0, appmaker_network_actions_1.getXSRFToken)(page);
     logger_1.logger.log('get xsrf token', xsrfToken);
     logger_1.logger.log('try to export project');
-    const appZipText = await page.evaluate(appmaker_network_actions_1.exportProject, applicationId, xsrfToken);
+    const appZipText = await page.evaluate(appmaker_network_actions_1.exportProject, appmaker_network_actions_1.AppMakerURLAPIs.exportProject, applicationId, xsrfToken);
     const appZipPath = __dirname + '/app.zip';
     logger_1.logger.log(`exporting done`);
     logger_1.logger.log(`writing to ${appZipPath}`);
@@ -126,8 +126,8 @@ async function initBrowserWithAppMakerApp(browser, applicationId, credentials) {
     }
 }
 exports.initBrowserWithAppMakerApp = initBrowserWithAppMakerApp;
-async function callAppMakerApp(applicationId, credentials, options = {}) {
-    const browser = await openBrowser(options);
+async function callAppMakerApp(applicationId, credentials, options = {}, configOptions) {
+    const browser = await openBrowser(options, configOptions);
     let page = null;
     try {
         page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);
@@ -155,8 +155,8 @@ async function callAppMakerApp(applicationId, credentials, options = {}) {
 }
 exports.callAppMakerApp = callAppMakerApp;
 ;
-async function runInApplicationPageContext(applicationId, credentials, options, callback) {
-    const browser = await openBrowser(options);
+async function runInApplicationPageContext(applicationId, credentials, options, configOptions, callback) {
+    const browser = await openBrowser(options, configOptions);
     let page = null;
     try {
         page = await initBrowserWithAppMakerApp(browser, applicationId, credentials);

@@ -130,10 +130,12 @@ export function generateTypeDeclarationFile(views: Array<View>, viewFragments: A
       if (typeName === TypeToGenerate.ServerScriptNames) {
         const newNode = ts.factory.createTypeAliasDeclaration(
           [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
-          ts.factory.createUnionTypeNode(
+          serverScriptsWithExports.length > 0
+          ? ts.factory.createUnionTypeNode(
             serverScriptsWithExports
             .map(script => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(script.name)))
-          ),
+          )
+          : ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword),
         );
   
         return newNode;
@@ -269,7 +271,9 @@ export function generateDataserviceSourceFile(models: Array<Model>): string {
       if (typeName === TypeToGenerate.ModelNames) {
         const newNode = ts.factory.createTypeAliasDeclaration(
           [ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword)], typeName, [],
-          ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name)))),
+          models.length > 0
+          ? ts.factory.createUnionTypeNode(models.map(model => ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(model.name))))
+          : ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword),
         );
   
         return newNode;

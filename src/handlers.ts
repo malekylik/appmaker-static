@@ -1,5 +1,5 @@
 const path = require('path');
-import { InteractiveMode, OfflineMode, RemoteMode } from './command-line';
+import { InteractiveMode, OfflineMode, RemoteMode, WithBrowserConfigOptions, WithPassword } from './command-line';
 import { checkForEmptyScriptsFiles, checkLinting, checkTypes } from './validate';
 import { App, initAppMakerApp, updateScript } from './appmaker/app';
 import { PageAPI, callAppMakerApp, runInApplicationPageContext } from './appmaker-network';
@@ -96,6 +96,7 @@ async function createAppMakerApplication(pathToUnzipProjectFolder: string): Prom
   ]);
 
   const [scriptsFiles, modelsFiles, viewsFiles, newViewFiles] = await Promise.all([
+    // TODO: check
     readAppMakerScripts(pathToUnzipProjectFolder, scriptsNames),
     readAppMakerModels(pathToUnzipProjectFolder, modelsNames),
     readAppMakerViews(pathToUnzipProjectFolder, viewsNames),
@@ -186,8 +187,8 @@ async function unzipProject(passedPath: string): Promise<string> {
     await exec(`unzip -d "${pathToProject}" "${passedPath}"`);
     return pathToProject;
   } catch (e) {
-    logger.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
-    logger.log(e);
+    console.log(`Fail to unzip file ${passedPath} to ${pathToProject}`);
+    console.log(e);
     process.exit(1);
   }
 }
@@ -209,14 +210,14 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   try {
     pathStat = await stat(options.project);
   } catch {
-    logger.log(`Couldn't find path: ${options.project}`);
+    console.log(`Couldn't find path: ${options.project}`);
     process.exit(1);
   }
 
   const isZip = path.extname(options.project) === '.zip';
 
   if (!pathStat.isDirectory() && !isZip) {
-    logger.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
+    console.log(`Passed pass isn't a zip nor folder. Unsupported extension of project file. Passed path ${options.project}`);
     process.exit(1);
   }
 
@@ -235,8 +236,8 @@ export async function handleOfflineApplicationMode(options: OfflineMode): Promis
   }
 }
 
-export async function handleRemoteApplicationMode(options: RemoteMode): Promise<void> {
-  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions);
+export async function handleRemoteApplicationMode(options: WithBrowserConfigOptions<WithPassword<RemoteMode>>): Promise<void> {
+  const passedPathToExportedZip = await callAppMakerApp(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions);
 
   const result = await validateZipProject(passedPathToExportedZip, options.outDir);
 
@@ -395,7 +396,7 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
 
   return async function checkForCommandNumber() {
     try {
-      if (commangFromServerPr !== null) {
+      if (commangFromServerPr !== null || replScheduler.getJobsCount() !== 0) {
         return;
       }
 
@@ -411,6 +412,13 @@ function getFuncToSyncWorkspace(api: HandleUserInputAPI) {
       const _commandNumber = await commangFromServerPr;
 
       commangFromServerPr = null;
+
+      // Check for race condition
+      // When we check for updating during the script updating by the user
+      // TODO: think about better syncing
+      if (replScheduler.getJobsCount() !== 0) {
+        return;
+      }
 
       if (O.isSome(_commandNumber) && isRequestResponse(_commandNumber.value)) {
         const res = pipe(
@@ -489,6 +497,7 @@ function watchProjectFiles(folder: string, api: HandleUserInputAPI) {
                 run: () => {
                   logger.log(`Updating file: ${colorPath(filenameObj.name)}`);
 
+                  // TODO: for some reason sometime its empty
                   if (newContent === '') {
                     logger.log(`Set: NewContent for ${filenameObj.name} is empty, probably it's not what was intended`)
                   }
@@ -595,7 +604,7 @@ enum InteractiveModeCommands {
 export type InteractiveModeState = 'ready' | 'loading' | 'warn';
 
 // TODO: improve
-//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands
+//  1. user interaction (when the user types command and hit enter - unnecessary new line); autocomlition for commands. Check (TTY and raw mode)
 //  2. close all calls when user enter "close" command
 //  3. create queue for polling command number and updating script - they may overlap
 //  4. add supporting different command, not only "changeScriptCommand", for example, command for updating view should regenerate view, command for updating model should regenerate types for models
@@ -603,7 +612,7 @@ export type InteractiveModeState = 'ready' | 'loading' | 'warn';
 //  6. add command to interact with AppMaker: delete file, deploy to instance, etc.
 //  7. add handling of error for updating scripts
 //  8. allow to open chrome in headless mode
-export async function handleInteractiveApplicationMode(options: InteractiveMode): Promise<void> {
+export async function handleInteractiveApplicationMode(options: WithBrowserConfigOptions<WithPassword<InteractiveMode>>): Promise<void> {
   function run(pageAPI: PageAPI) {
     return new Promise(async (resolve, reject) => {
       let state: InteractiveModeState = 'ready';
@@ -701,10 +710,10 @@ export async function handleInteractiveApplicationMode(options: InteractiveMode)
     });
   }
 
-  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
+  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }
 
-export async function handleInteractiveApplicationModeTest(options: InteractiveMode): Promise<void> {
+export async function handleInteractiveApplicationModeTest(options: WithBrowserConfigOptions<WithPassword<InteractiveMode>>): Promise<void> {
   logger.log('interactive');
 
   function run(pageAPI: PageAPI) {
@@ -780,5 +789,5 @@ export async function handleInteractiveApplicationModeTest(options: InteractiveM
     });
   }
 
-  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, run);
+  runInApplicationPageContext(options.appId, options.credentials, options.browserOptions, options.browserConfigOptions, run);
 }

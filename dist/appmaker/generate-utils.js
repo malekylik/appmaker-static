@@ -38,20 +38,6 @@ function stringifyAppMakerProperty(type, value) {
     return String(value);
 }
 exports.stringifyAppMakerProperty = stringifyAppMakerProperty;
-// export function converAppMakerPropertyToValue(type: AppMakerVarType | string, value: unknown): unknown {
-//   switch(type) {
-//     case 'Number': return Number(value);
-//     case 'String': return String(value);
-//     case 'Boolean': return value === 'true' ? true : false;
-//     case 'Date': return 'Date';
-//     case 'List[Number]': return 'List<number>';
-//     case 'List[String]': return 'List<string>';
-//     case 'List[Boolean]': return 'List<boolean>';
-//     case 'List[Date]': return 'List<Date>';
-//     case 'Dynamic': return 'unknown';
-//   }
-//   return type;
-// }
 function isAppMakerListType(type) {
     if (type === 'List[Number]' ||
         type === 'List[String]' ||

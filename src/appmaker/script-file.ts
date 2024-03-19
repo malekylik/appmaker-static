@@ -6,7 +6,6 @@ import {
   getNameForDataSourceParams, getNameForDataSourceProperties, getOnChange, getOnClick, getOnDataLoad, getOnLoad, getOnUnload, getOnValidate, getOnValueEdit, getOnValuesChange, getViewName, hexHtmlToString,
   isDataSourceContainsParams, isDataSourceContainsProperties, traverseView
 } from './generate-utils';
-import { AppMakerView } from 'src/functional/appmaker/appmaker-domain';
 
 export function generateDatasourceSourceFile(models: Array<Model>): string {
   const getFunctionName = (modelName: string, datasource: string): string => `${modelName}_${datasource}`;
