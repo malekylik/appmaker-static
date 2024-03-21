@@ -210,6 +210,7 @@ async function handleUserInput(api, data) {
     else if (command === InteractiveModeCommands.export) {
         logger_1.logger.log('exporting...');
         api.stopWatch();
+        api.stopSyncing();
         logger_1.logger.silent(true);
         const { app, generatedFiles } = await handleExportProject(api.getPageAPI(), api.getOptions().appId, api.getOptions().outDir);
         api.setGeneratedFiles(generatedFiles);
@@ -218,6 +219,7 @@ async function handleUserInput(api, data) {
         logger_1.logger.silent(false);
         api.setCommandNumber((0, function_1.pipe)(commangFromServer, O.chain(v => (0, appmaker_network_actions_1.isRequestResponse)(v) ? O.some(getCommandNumberResponse(v)) : api.getCommandNumber())));
         api.watch();
+        api.startSyncing();
         api.setState('ready');
         initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir, api.getState());
     }
@@ -481,6 +483,12 @@ async function handleInteractiveApplicationMode(options) {
                 stopWatch() {
                     watcherSubscription.unsubscribe();
                     watcherSubscription = { unsubscribe: () => { } };
+                },
+                startSyncing() {
+                    syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000);
+                },
+                stopSyncing() {
+                    clearInterval(syncInterval);
                 },
                 async close() {
                     node_process_1.stdin.removeListener('data', handler);

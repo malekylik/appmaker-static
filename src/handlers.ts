@@ -264,6 +264,9 @@ type HandleUserInputAPI = {
 
   getXsrfToken(): O.Option<string>;
 
+  startSyncing(): void;
+  stopSyncing(): void;
+
   watch(): void;
   stopWatch(): void;
 
@@ -301,6 +304,7 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
     logger.log('exporting...');
 
     api.stopWatch();
+    api.stopSyncing();
 
     logger.silent(true);
 
@@ -324,6 +328,7 @@ async function handleUserInput(api: HandleUserInputAPI, data: Buffer) {
     ));
 
     api.watch();
+    api.startSyncing();
     api.setState('ready');
 
     initConsoleForInteractiveMode(api.getXsrfToken(), api.getCommandNumber(), api.getOptions().outDir, api.getState());
@@ -678,6 +683,14 @@ export async function handleInteractiveApplicationMode(options: WithBrowserConfi
         stopWatch() {
           watcherSubscription.unsubscribe();
           watcherSubscription = { unsubscribe: () => {} };
+        },
+
+        startSyncing() {
+          syncInterval = setInterval(getFuncToSyncWorkspace(userAPI), 5000) as unknown as number;
+        },
+
+        stopSyncing() {
+          clearInterval(syncInterval);
         },
 
         async close() {
