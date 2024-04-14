@@ -7,6 +7,15 @@ Place a json file with the name _appmaker-static.config.json_ in the root folder
 
 ## appmaker-static modes
 
+There are several modes the tool can be run with:
+<ul>
+    <li><code>offline</code></li>
+    <li><code>remote</code></li>
+    <li><code>interactive</code></li>
+</ul>
+
+The <code>--mode</code> arg can be passed to run the tool with the specific mode.
+
 ### offline
 
 ### remote
