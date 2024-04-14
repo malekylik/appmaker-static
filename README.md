@@ -1,5 +1,9 @@
 # appmaker-static
 
+A tool to improve developer experience on working with AppMaker. Uses Headless Chrome and Puppeteer to communicate with AppMaker server.
+<br>
+<code>headless?: boolean</code> arg can be passed to control if Headless Chrome should be run in headless mode. Note: not every mode supports this arg.
+
 ## appmaker-static config
 Place a json file with the name _appmaker-static.config.json_ in the root folder. The config should contain an object with the following properties:
 <ul>
