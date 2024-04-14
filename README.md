@@ -18,6 +18,18 @@ The <code>--mode</code> arg can be passed to run the tool with the specific mode
 
 ### offline
 
+Runs ESLint with <code>--fix</code> arg and TypeScript over the provided AppMaker project. Displays the output from ESLint and TypeScript to the prompt.
+<br>
+The result is archived to <code>app.zip</code> file.
+<br>
+<br>
+Supported args:
+<ul>
+    <li><code>project: string</code> - Path to the AppMaker project. Can be a zip archive or a folder.</li>
+    <li><code>outDir: string</code> - Path to folder for the output <code>app.zip</code> file. Also used to store temporary files during execution of the tool. Make sure the folder doesn't contain any valuable files since they will be removed.</li>
+</ul>
+
+
 ### remote
 
 ### interactive
