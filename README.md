@@ -38,4 +38,18 @@ Supported args:
 
 ### remote
 
+Downloads the provide AppMaker project, unzips it, generate JS file.
+Runs ESLint with <code>--fix</code> arg and TypeScript over the AppMaker project. Displays the output from ESLint and TypeScript to the prompt.
+<br>
+The result is archived to <code>app.zip</code> file.
+<br>
+<br>
+Supported args:
+<ul>
+    <li><code>appId: string</code> - The identifier of the AppMaker project.</li>
+    <li><code>login: string</code> - The login of an user who has access to the AppMaker project.</li>
+    <li><code>outDir: string</code> - The path to folder for the output <code>app.zip</code> file. Also used to store temporary files during execution of the tool. Make sure the folder doesn't contain any valuable files since they will be removed.</li>
+    <li><code>headless?: boolean</code> arg can be passed to control if Headless Chrome should be run in headless mode.</li>
+</ul>
+
 ### interactive
